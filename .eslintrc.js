@@ -7,5 +7,8 @@ module.exports = {
     ],
     "env": {
         "jest/globals": true
+    },
+    "globals": {
+        "requestAnimationFrame": 2
     }
 };

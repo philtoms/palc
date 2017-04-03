@@ -31,13 +31,13 @@ const alias = path => {
   const parts = []
   const traverse = (graph, key) => {
     let found = !!graph[key]
-    Object.keys(graph).forEach(akey => {
-      if (typeof graph[akey] !== 'object') {
-        if (key === akey) {
-          parts.push(graph[akey])
+    Object.keys(graph).forEach(node => {
+      if (typeof graph[node] !== 'object') {
+        if (key === node) {
+          parts.push(graph[node])
         }
       } else {
-        found = found || traverse(graph[akey], key)
+        found = found || traverse(graph[node], key)
       }
     })
     return found
@@ -58,54 +58,61 @@ let formulae = {
 
 const inv = unit => x => x * (1 / (formulae[unit] || unit)(1))
 
-const findKey = (graph, key) => {
-  const accum = []
-  const traverse = (graph, path) => {
-    if (graph[key]) {
-      accum.push(path.concat({[key]: graph[key]}))
-    } else {
-      const nk = Object.keys(graph).find(gk => gk.startsWith(key))
-      if (nk) {
-        accum.push(path.concat({[nk]: graph[nk]}))
+function generateNode (graph, node, filter) {
+  const traverse = function * (graph, path) {
+    for (let key of Object.keys(graph)) {
+      const value = graph[key]
+      const newPath = path.concat({[key]: value})
+      if (key.startsWith(node) && filter(newPath)) {
+        yield newPath
       } else {
-        Object.keys(graph)
-        .filter(gk => typeof graph[gk] !== 'object' && gk.startsWith(key))
-        .forEach(gk => {
-          accum.push(path.concat({[gk]: graph[gk]}))
-        })
-        Object.keys(graph)
-        .filter(gk => typeof graph[gk] === 'object')
-        .forEach(gk => {
-          const children = traverse(graph[gk], path.concat({[gk]: graph[gk]}))
-          if (children) {
-            accum.push(children)
-          }
-        })
+        if (!isNaN(node) && filter(newPath)) {
+          yield path.concat({calc: Number(node)})
+        } else if (typeof value === 'object') {
+          yield * traverse(value, newPath)
+        }
       }
     }
   }
-  traverse(graph, [])
-  return accum.length ? accum : []
+  return traverse(graph, [])
 }
 
-const findPath = (graph, keys) => {
-  const fpath = []
-  keys
-    .map(key => findKey(graph, key))
-    .filter(path => path.length)
-    .forEach(path => {
-      for (let p = 0; p < path.length; p++) {
-        let match = 0
-        for (let i = 0; i < keys.length; i++) {
-          if (path[p].find(item => item[keys[i]] || keyOf(item).startsWith(keys[i]))) {
-            match++
-          }
-        }
-        if (match === keys.length) fpath.push(path[p])
-      }
-    })
-  return fpath
+function * generatePath (graph, nodes) {
+  const pathFilter = filter(nodes)
+  for (let node of nodes) {
+    const it = generateNode(graph, node, pathFilter)
+    for (let path = it.next(); !path.done; path = it.next()) {
+      yield path.value
+    }
+  }
 }
+
+const filter = keys => path => keys.reduce((match, key) => {
+  return match && (!!path.find(item => keyOf(item).startsWith(key)) || !isNaN(key))
+}, true)
+
+function nextFrame () {
+  return new Promise(function (resolve, reject) {
+    requestAnimationFrame(function () { resolve() })
+  })
+}
+
+/* Applies `fn` to each element of `collection`, iterating once per frame */
+nextFrame.mapInFrames = function (collection, fn) {
+  var queue = Promise.resolve()
+  var values = []
+  collection.forEach(item => {
+    queue = queue.then(() => nextFrame().then(() => values.push(fn(item))))
+  })
+  return queue.then(() => values)
+}
+
+// function generateItems (graph, keys) {
+//   return nextFrame.mapInFrames(keys, key => {
+//     const path = generateNode(graph, key)
+//     while(path.next())
+//   })
+// }
 
 describe('engine', () => {
   describe('formulae', () => {
@@ -117,94 +124,123 @@ describe('engine', () => {
     })
   })
 
-  describe('findKey', () => {
-    it('should return item for leaf key', () => {
-      expect(findKey(foodGraph, 'version')).toEqual([
-        [{version: foodGraph.version}]
+  describe('generateNode', () => {
+    const filter = () => true
+    it('should return generator bound to graph', () => {
+      expect(generateNode(foodGraph, 'version', filter).next().value).toEqual([
+        {version: foodGraph.version}
       ])
     })
     it('should return item for branch key', () => {
-      expect(findKey(foodGraph, 'chicken')).toEqual([
-        [
-          {chicken: foodGraph.chicken}
-        ]
-      ])
-    })
-    it('should return item for partial branch key', () => {
-      expect(findKey(foodGraph, 'chick')).toEqual([
-        [
-          {chicken: foodGraph.chicken}
-        ]
+      expect(generateNode(foodGraph, 'chicken', filter).next().value).toEqual([
+        {chicken: foodGraph.chicken}
       ])
     })
     it('should return empty items for missing key', () => {
-      expect(findKey(foodGraph, 'xxx')).toEqual([])
+      expect(generateNode(foodGraph, 'xxx', filter).next().value).toEqual(undefined)
     })
-    it('should return multiple items for shared key', () => {
-      expect(findKey(foodGraph, 'fried')).toEqual([
-        [
-          {beef: foodGraph.beef},
-          {fried: foodGraph.beef.fried}
-        ],
-        [
-          {chicken: foodGraph.chicken},
-          {fried: foodGraph.chicken.fried}
-        ]
+    it('should return empty items for filtered key', () => {
+      const filter = () => false
+      expect(generateNode(foodGraph, 'chicken', filter).next().value).toEqual(undefined)
+    })
+    it('should return item for partial branch key', () => {
+      expect(generateNode(foodGraph, 'chick', filter).next().value).toEqual([
+        {chicken: foodGraph.chicken}
       ])
     })
+    it('should return multiple items for shared key', () => {
+      const items = generateNode(foodGraph, 'fried', filter)
+      expect(items.next().value).toEqual([
+        {beef: foodGraph.beef},
+        {fried: foodGraph.beef.fried}
+      ])
+      expect(items.next().value).toEqual([
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried}
+      ])
+      expect(items.next().done).toBe(true)
+    })
     it('should return item for partial key', () => {
-      expect(findKey(foodGraph, 'v')).toEqual([
-        [{version: foodGraph.version}]
+      expect(generateNode(foodGraph, 'v', filter).next().value).toEqual([
+        {version: foodGraph.version}
       ])
     })
     it('should return multiple items for partial key', () => {
-      expect(findKey(foodGraph, 'oi')).toEqual([
-        [
-          {beef: foodGraph.beef},
-          {fried: foodGraph.beef.fried},
-          {oil: 300}
-        ],
-        [
-          {chicken: foodGraph.chicken},
-          {fried: foodGraph.chicken.fried},
-          {temp: foodGraph.chicken.fried.temp},
-          {oil: 340}
-        ]
+      const items = generateNode(foodGraph, 'oi', filter)
+      expect(items.next().value).toEqual([
+        {beef: foodGraph.beef},
+        {fried: foodGraph.beef.fried},
+        {oil: 300}
+      ])
+      expect(items.next().value).toEqual([
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried},
+        {temp: foodGraph.chicken.fried.temp},
+        {oil: 340}
+      ])
+    })
+    it('should generate calc entry', () => {
+      expect(generateNode(foodGraph, '123', filter).next().value).toEqual([
+        {calc: 123}
       ])
     })
   })
 
-  describe('findPath', () => {
-    it('should return empty set', () => {
-      expect(findPath(foodGraph, ['xxx', 'fried'])).toEqual([])
+  describe('filter', () => {
+    const path = [
+      {chicken: foodGraph.chicken},
+      {fried: foodGraph.chicken.fried}
+    ]
+
+    it('should return true for matched path', () => {
+      expect(filter(['chicken', 'fried'])(path)).toBe(true)
     })
-    it('should return single filtered entry for unique key', () => {
-      expect(findPath(foodGraph, ['chicken', 'fried'])).toEqual([
-        [
-          {chicken: foodGraph.chicken},
-          {fried: foodGraph.chicken.fried}
-        ]
+    it('should return true for matched path with partial keys', () => {
+      expect(filter(['chicken', 'f'])(path)).toBe(true)
+    })
+    it('should return true for reverse path', () => {
+      expect(filter(['fried', 'chicken'])(path)).toBe(true)
+    })
+    it('should return true for partial path', () => {
+      expect(filter(['chicken'])(path)).toBe(true)
+    })
+    it('should return true for numbers', () => {
+      expect(filter(['chicken', 123])(path)).toBe(true)
+    })
+    it('should return false for unmatched path', () => {
+      expect(filter(['fried', 'eggs'])(path)).toBe(false)
+    })
+  })
+
+  describe('generatePath', () => {
+    it('should return entries for each path key', () => {
+      const path = generatePath(foodGraph, ['chicken', 'fried'])
+      expect(path.next().value).toEqual([
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried}
       ])
     })
-    it('should return single filtered entry for unique partial key', () => {
-      expect(findPath(foodGraph, ['chicken', 'f'])).toEqual([
-        [
-          {chicken: foodGraph.chicken},
-          {fried: foodGraph.chicken.fried}
-        ]
+    it('should return multiple entries for shared keys', () => {
+      const path = generatePath(foodGraph, ['fried'])
+      expect(path.next().value).toEqual([
+        {beef: foodGraph.beef},
+        {fried: foodGraph.beef.fried}
+      ])
+      expect(path.next().value).toEqual([
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried}
       ])
     })
-    it('should return multiple filtered entries for shared keys', () => {
-      expect(findPath(foodGraph, ['fried'])).toEqual([
-        [
-          {beef: foodGraph.beef},
-          {fried: foodGraph.beef.fried}
-        ],
-        [
-          {chicken: foodGraph.chicken},
-          {fried: foodGraph.chicken.fried}
-        ]
+
+    it('should include calc entry in path', () => {
+      const path = generatePath(foodGraph, ['chicken', '123'])
+      expect(path.next().value).toEqual([
+        {chicken: foodGraph.chicken}
       ])
+      expect(path.next().value).toEqual([
+        {calc: 123}
+      ])
+      expect(path.next().done).toBe(true)
     })
   })
 
