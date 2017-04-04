@@ -65,24 +65,33 @@ function generateNode (graph, node, filter) {
       const newPath = path.concat({[key]: value})
       if (key.startsWith(node) && filter(newPath)) {
         yield newPath
-      } else {
-        if (!isNaN(node) && filter(newPath)) {
-          yield path.concat({calc: Number(node)})
-        } else if (typeof value === 'object') {
-          yield * traverse(value, newPath)
-        }
+      } else if (typeof value === 'object') {
+        yield * traverse(value, newPath)
       }
     }
   }
   return traverse(graph, [])
 }
 
+function * calculate (path, num) {
+  yield path
+}
+
 function * generatePath (graph, nodes) {
+  const cache = []
+  let num
   const pathFilter = filter(nodes)
   for (let node of nodes) {
+    if (!isNaN(node)) {
+      num = Number(node)
+      for (let value of cache) {
+        yield * calculate(value, num)
+      }
+    }
     const it = generateNode(graph, node, pathFilter)
     for (let path = it.next(); !path.done; path = it.next()) {
-      yield path.value
+      cache.push(path.value)
+      yield * calculate(path.value, num)
     }
   }
 }
@@ -179,11 +188,6 @@ describe('engine', () => {
         {oil: 340}
       ])
     })
-    it('should generate calc entry', () => {
-      expect(generateNode(foodGraph, '123', filter).next().value).toEqual([
-        {calc: 123}
-      ])
-    })
   })
 
   describe('filter', () => {
@@ -204,11 +208,27 @@ describe('engine', () => {
     it('should return true for partial path', () => {
       expect(filter(['chicken'])(path)).toBe(true)
     })
-    it('should return true for numbers', () => {
-      expect(filter(['chicken', 123])(path)).toBe(true)
-    })
     it('should return false for unmatched path', () => {
       expect(filter(['fried', 'eggs'])(path)).toBe(false)
+    })
+  })
+
+  describe('alias', () => {
+    it('should map to alias text', () => {
+      expect(alias([
+          {chicken: foodGraph.chicken},
+          {fried: foodGraph.chicken.fried}
+      ])).toBe('fried chicken')
+    })
+    it('should partial map to alias text', () => {
+      expect(alias([
+          {fried: foodGraph.chicken.fried}
+      ])).toBe('fried chicken')
+    })
+    it('should substitute missing alias leaf text', () => {
+      expect(alias([
+          {chicken: foodGraph.chicken}
+      ])).toBe('chicken')
     })
   })
 
@@ -238,28 +258,9 @@ describe('engine', () => {
         {chicken: foodGraph.chicken}
       ])
       expect(path.next().value).toEqual([
-        {calc: 123}
+        {chicken: foodGraph.chicken}
       ])
       expect(path.next().done).toBe(true)
-    })
-  })
-
-  describe('alias', () => {
-    it('should map to alias text', () => {
-      expect(alias([
-          {chicken: foodGraph.chicken},
-          {fried: foodGraph.chicken.fried}
-      ])).toBe('fried chicken')
-    })
-    it('should partial map to alias text', () => {
-      expect(alias([
-          {fried: foodGraph.chicken.fried}
-      ])).toBe('fried chicken')
-    })
-    it('should substitute missing alias leaf text', () => {
-      expect(alias([
-          {chicken: foodGraph.chicken}
-      ])).toBe('chicken')
     })
   })
 })
