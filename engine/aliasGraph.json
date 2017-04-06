@@ -1,0 +1,9 @@
+{
+  "chicken": {
+    "fried": "fried chicken"
+  },
+  "temp": {
+    "oil": "oil temperature",
+    "int": "internal temperature"
+  }
+}

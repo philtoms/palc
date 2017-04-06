@@ -33,7 +33,7 @@ export function generateNode (graph, node, filter) {
   const traverse = function * (graph, path) {
     for (let key of Object.keys(graph)) {
       const value = graph[key]
-      const newPath = path.concat({[key]: value})
+      const newPath = [].concat({[key]: value}, path)
       if (key.startsWith(node) && filter(newPath)) {
         yield newPath
       } else if (typeof value === 'object') {

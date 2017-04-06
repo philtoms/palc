@@ -32,7 +32,6 @@ let aliasGraph = {
   }
 }
 
-
 function nextFrame () {
   return new Promise(function (resolve, reject) {
     requestAnimationFrame(function () { resolve() })
@@ -93,12 +92,12 @@ describe('engine', () => {
     it('should return multiple items for shared key', () => {
       const items = generateNode(foodGraph, 'fried', filter)
       expect(items.next().value).toEqual([
-        {beef: foodGraph.beef},
-        {fried: foodGraph.beef.fried}
+        {fried: foodGraph.beef.fried},
+        {beef: foodGraph.beef}
       ])
       expect(items.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried}
+        {fried: foodGraph.chicken.fried},
+        {chicken: foodGraph.chicken}
       ])
       expect(items.next().done).toBe(true)
     })
@@ -110,15 +109,15 @@ describe('engine', () => {
     it('should return multiple items for partial key', () => {
       const items = generateNode(foodGraph, 'oi', filter)
       expect(items.next().value).toEqual([
-        {beef: foodGraph.beef},
+        {oil: 300},
         {fried: foodGraph.beef.fried},
-        {oil: 300}
+        {beef: foodGraph.beef}
       ])
       expect(items.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried},
+        {oil: 340},
         {temp: foodGraph.chicken.fried.temp},
-        {oil: 340}
+        {fried: foodGraph.chicken.fried},
+        {chicken: foodGraph.chicken}
       ])
     })
   })
@@ -169,30 +168,24 @@ describe('engine', () => {
     it('should return entries for each path key', () => {
       const path = generatePath(foodGraph, ['chicken', 'fried'])
       expect(path.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried}
+        {fried: foodGraph.chicken.fried},
+        {chicken: foodGraph.chicken}
       ])
     })
     it('should return multiple entries for shared keys', () => {
       const path = generatePath(foodGraph, ['fried'])
       expect(path.next().value).toEqual([
-        {beef: foodGraph.beef},
-        {fried: foodGraph.beef.fried}
+        {fried: foodGraph.beef.fried},
+        {beef: foodGraph.beef}
       ])
       expect(path.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried}
+        {fried: foodGraph.chicken.fried},
+        {chicken: foodGraph.chicken}
       ])
     })
 
-    it('should include calc entry in path', () => {
-      const path = generatePath(foodGraph, ['chicken', '123'])
-      expect(path.next().value).toEqual([
-        {chicken: foodGraph.chicken}
-      ])
-      expect(path.next().value).toEqual([
-        {chicken: foodGraph.chicken}
-      ])
+    it('should return empty list for unknown keys', () => {
+      const path = generatePath(foodGraph, ['xxx'])
       expect(path.next().done).toBe(true)
     })
   })
