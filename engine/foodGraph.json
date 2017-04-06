@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "beef": {
+    "int": {
+      "temp": {
+        "value": 80,
+        "unit": "cel"
+      }
+    },
+    "fried": {
+      "oil": 300
+    }
+  },
+  "chicken": {
+    "fried": {
+      "temp": {
+        "oil": 340,
+        "int": 75
+      }
+    }
+  }
+}
