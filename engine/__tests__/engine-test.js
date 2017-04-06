@@ -1,7 +1,14 @@
+import generatePath, { alias, inv, formulae, generateNode, filter } from '../'
+
 let foodGraph = {
   version: '0.0.1',
   beef: {
-    int: 80,
+    int: {
+      temp: {
+        value: 80,
+        unit: 'cel'
+      }
+    },
     fried: {
       oil: 300
     }
@@ -25,80 +32,6 @@ let aliasGraph = {
   }
 }
 
-const keyOf = obj => Object.keys(obj)[0]
-
-const alias = path => {
-  const parts = []
-  const traverse = (graph, key) => {
-    let found = !!graph[key]
-    Object.keys(graph).forEach(node => {
-      if (typeof graph[node] !== 'object') {
-        if (key === node) {
-          parts.push(graph[node])
-        }
-      } else {
-        found = found || traverse(graph[node], key)
-      }
-    })
-    return found
-  }
-  path.forEach((item, idx) => {
-    traverse(aliasGraph, keyOf(item))
-    if (!parts.length && idx === path.length - 1) {
-      parts.push(keyOf(item))
-    }
-  })
-
-  return parts.join(' ')
-}
-
-let formulae = {
-  oz_gm: x => x * 28.35
-}
-
-const inv = unit => x => x * (1 / (formulae[unit] || unit)(1))
-
-function generateNode (graph, node, filter) {
-  const traverse = function * (graph, path) {
-    for (let key of Object.keys(graph)) {
-      const value = graph[key]
-      const newPath = path.concat({[key]: value})
-      if (key.startsWith(node) && filter(newPath)) {
-        yield newPath
-      } else if (typeof value === 'object') {
-        yield * traverse(value, newPath)
-      }
-    }
-  }
-  return traverse(graph, [])
-}
-
-function * calculate (path, num) {
-  yield path
-}
-
-function * generatePath (graph, nodes) {
-  const cache = []
-  let num
-  const pathFilter = filter(nodes)
-  for (let node of nodes) {
-    if (!isNaN(node)) {
-      num = Number(node)
-      for (let value of cache) {
-        yield * calculate(value, num)
-      }
-    }
-    const it = generateNode(graph, node, pathFilter)
-    for (let path = it.next(); !path.done; path = it.next()) {
-      cache.push(path.value)
-      yield * calculate(path.value, num)
-    }
-  }
-}
-
-const filter = keys => path => keys.reduce((match, key) => {
-  return match && (!!path.find(item => keyOf(item).startsWith(key)) || !isNaN(key))
-}, true)
 
 function nextFrame () {
   return new Promise(function (resolve, reject) {
@@ -215,18 +148,18 @@ describe('engine', () => {
 
   describe('alias', () => {
     it('should map to alias text', () => {
-      expect(alias([
+      expect(alias(aliasGraph, [
           {chicken: foodGraph.chicken},
           {fried: foodGraph.chicken.fried}
       ])).toBe('fried chicken')
     })
     it('should partial map to alias text', () => {
-      expect(alias([
+      expect(alias(aliasGraph, [
           {fried: foodGraph.chicken.fried}
       ])).toBe('fried chicken')
     })
     it('should substitute missing alias leaf text', () => {
-      expect(alias([
+      expect(alias(aliasGraph, [
           {chicken: foodGraph.chicken}
       ])).toBe('chicken')
     })
