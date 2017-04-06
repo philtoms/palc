@@ -1,5 +1,4 @@
 import React from 'react'
-import timer from 'react-native-timer'
 import { ListView, StyleSheet, Text, TextInput, View } from 'react-native'
 
 import generatePath, {alias} from './engine'
@@ -14,24 +13,25 @@ export default class App extends React.Component {
   }
 
   componentWillUnmount () {
-    timer.cancelAnimationFrame('animationCtx')
+    GLOBAL.cancelAnimationFrame(this.animationId)
   }
 
   _handleTextChange = inputValue => {
     this.setState({
       inputValue
     }, () => {
-      timer.cancelAnimationFrame('animationCtx')
+      GLOBAL.cancelAnimationFrame(this.animationId)
       this._updateList(generatePath(foodGraph, inputValue.split(/\s+/)), [])
     })
   }
 
   _updateList = (it, list) => {
-    timer.requestAnimationFrame('animationCtx', '', () => {
+    this.animationId = GLOBAL.requestAnimationFrame(() => {
       const path = it.next()
       if (!path.done) {
-        list.unshift(alias(aliasGraph, it.value))
-        this.setState(this.state.dataSource.cloneWithRows(list))
+        list.unshift(alias(aliasGraph, path.value))
+        console.log(list)
+        this.setState({dataSource: this.state.dataSource.cloneWithRows(list)})
         this._updateList(it, list)
       }
     })
@@ -80,6 +80,8 @@ const styles = StyleSheet.create({
   },
   input: {
     fontSize: 18,
+    width: 200,
+    height: 20,
     color: 'black'
   }
 })

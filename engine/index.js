@@ -55,7 +55,7 @@ export const filter = keys => path => keys.reduce((match, key) => {
 function * generatePath (graph, nodes) {
   const cache = []
   let num
-  const pathFilter = filter(nodes)
+  const pathFilter = filter(nodes.map(n => n.toLowerCase()))
   for (let node of nodes) {
     if (!isNaN(node)) {
       num = Number(node)
@@ -63,7 +63,7 @@ function * generatePath (graph, nodes) {
         yield * calculate(value, num)
       }
     }
-    const it = generateNode(graph, node, pathFilter)
+    const it = generateNode(graph, node.toLowerCase(), pathFilter)
     for (let path = it.next(); !path.done; path = it.next()) {
       cache.push(path.value)
       yield * calculate(path.value, num)
