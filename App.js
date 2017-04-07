@@ -1,9 +1,11 @@
 import React from 'react'
 import { ListView, StyleSheet, Text, TextInput, View } from 'react-native'
 
-import generatePath, {alias} from './engine'
+import generateList from './engine'
 import foodGraph from './engine/foodGraph.json'
 import aliasGraph from './engine/aliasGraph'
+
+const generate = generateList(foodGraph, aliasGraph)
 
 export default class App extends React.Component {
   state = {
@@ -21,7 +23,7 @@ export default class App extends React.Component {
       inputValue
     }, () => {
       GLOBAL.cancelAnimationFrame(this.animationId)
-      this._updateList(generatePath(foodGraph, inputValue.split(/\s+/)), [])
+      this._updateList(generate(inputValue.split(/\s+/)), [])
     })
   }
 
@@ -29,11 +31,10 @@ export default class App extends React.Component {
     this.animationId = GLOBAL.requestAnimationFrame(() => {
       const path = it.next()
       if (!path.done) {
-        list.unshift(alias(aliasGraph, path.value))
-        console.log(list)
-        this.setState({dataSource: this.state.dataSource.cloneWithRows(list)})
+        list.unshift(path.value)
         this._updateList(it, list)
       }
+      this.setState({dataSource: this.state.dataSource.cloneWithRows(Array.from(list))})
     })
   }
 

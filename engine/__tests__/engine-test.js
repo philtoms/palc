@@ -1,4 +1,4 @@
-import generatePath, { alias, inv, formulae, generateNode, filter } from '../'
+import generateList, { alias, inv, formulae, generateNode, generatePath, filter } from '../'
 
 let foodGraph = {
   version: '0.0.1',
@@ -186,6 +186,20 @@ describe('engine', () => {
 
     it('should return empty list for unknown keys', () => {
       const path = generatePath(foodGraph, ['xxx'])
+      expect(path.next().done).toBe(true)
+    })
+
+    it('should return done for trailing space entry', () => {
+      const path = generatePath(foodGraph, ['c', ' '])
+      path.next()
+      expect(path.next().done).toBe(true)
+    })
+  })
+
+  describe('generateList', () => {
+    it('should filter duplicates', () => {
+      const path = generateList(foodGraph, aliasGraph)(['c', 'chicken'])
+      path.next()
       expect(path.next().done).toBe(true)
     })
   })

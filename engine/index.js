@@ -49,13 +49,14 @@ function * calculate (path, num) {
 }
 
 export const filter = keys => path => keys.reduce((match, key) => {
-  return match && (!!path.find(item => keyOf(item).startsWith(key)) || !isNaN(key))
+  return match && key && (!!path.find(item => keyOf(item).startsWith(key)) || !isNaN(key))
 }, true)
 
-function * generatePath (graph, nodes) {
+export function * generatePath (graph, keys) {
   const cache = []
+  const nodes = keys.map(n => n.toLowerCase().trim()).filter(n => n)
   let num
-  const pathFilter = filter(nodes.map(n => n.toLowerCase()))
+  const pathFilter = filter(nodes)
   for (let node of nodes) {
     if (!isNaN(node)) {
       num = Number(node)
@@ -63,7 +64,7 @@ function * generatePath (graph, nodes) {
         yield * calculate(value, num)
       }
     }
-    const it = generateNode(graph, node.toLowerCase(), pathFilter)
+    const it = generateNode(graph, node, pathFilter)
     for (let path = it.next(); !path.done; path = it.next()) {
       cache.push(path.value)
       yield * calculate(path.value, num)
@@ -71,5 +72,19 @@ function * generatePath (graph, nodes) {
   }
 }
 
+const generateList = (dataGraph, aliasGraph) => {
+  return function * (keys) {
+    const cache = []
+    const it = generatePath(dataGraph, keys)
+    for (let path = it.next(); !path.done; path = it.next()) {
+      const entry = alias(aliasGraph, path.value)
+      if (!cache.includes(entry)) {
+        cache.push(entry)
+        yield entry
+      }
+    }
+  }
+}
+
 export { formulae }
-export default generatePath
+export default generateList
