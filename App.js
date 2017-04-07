@@ -1,11 +1,12 @@
 import React from 'react'
-import { ListView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Dimensions, ListView, StyleSheet, Text, TextInput, View } from 'react-native'
 
 import generateList from './engine'
 import foodGraph from './engine/foodGraph.json'
 import aliasGraph from './engine/aliasGraph'
 
 const generate = generateList(foodGraph, aliasGraph)
+const borderWidth = Math.floor(Dimensions.get('window').width * 0.1)
 
 export default class App extends React.Component {
   state = {
@@ -47,13 +48,13 @@ export default class App extends React.Component {
         <TextInput
           autoFocus
           value={this.state.inputValue}
-          placeholder="Type a numer or a unit..."
+          placeholder="Just type..."
           onChangeText={this._handleTextChange}
           style={styles.input}
         />
         <ListView
           dataSource={this.state.dataSource}
-          renderRow={rowData => <Text>{rowData}</Text>}
+          renderRow={rowData => <Text style={styles.listRow}>{rowData}</Text>}
         />
       </View>
     )
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     borderColor: '#fff3da',
-    borderWidth: 30,
+    borderWidth: borderWidth,
     paddingTop: 20
   },
   title: {
@@ -80,9 +81,17 @@ const styles = StyleSheet.create({
     color: '#34495e'
   },
   input: {
+    marginTop: 20,
     fontSize: 18,
-    width: 200,
-    height: 20,
+    width: '80%',
+    left: '10%',
+    height: 60,
+    borderWidth: 1,
+    padding: 10,
     color: 'black'
+  },
+  listRow: {
+    fontSize: 18,
+    minWidth: '80%'
   }
 })
