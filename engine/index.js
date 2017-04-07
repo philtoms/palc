@@ -3,37 +3,34 @@ import formulae from './formulae'
 export const inv = unit => x => x * (1 / (formulae[unit] || unit)(1))
 
 const keyOf = obj => Object.keys(obj)[0]
+const valueOf = obj => obj[keyOf(obj)]
 
 export const alias = (graph, path) => {
-  const parts = []
-  const traverse = (graph, key) => {
-    let found = !!graph[key]
-    Object.keys(graph).forEach(node => {
-      if (typeof graph[node] !== 'object') {
-        if (key === node) {
-          parts.push(graph[node])
-        }
+  let parts = []
+  const traverse = (graph, keys, path) => {
+    let key = keys.shift()
+    if (graph[key]) {
+      if (typeof graph[key] !== 'object') {
+        return graph[key]
       } else {
-        found = found || traverse(graph[node], key)
+        return traverse(graph[key], keys, path.concat(key))
       }
-    })
-    return found
-  }
-  path.forEach((item, idx) => {
-    traverse(graph, keyOf(item))
-    if (!parts.length && idx === path.length - 1) {
-      parts.push(keyOf(item))
     }
-  })
+    return path.concat(key)
+  }
+  const keys = path.map(keyOf)
+  while (keys.length) {
+    parts = parts.concat(traverse(graph, keys, []))
+  }
 
-  return parts.join(' ')
+  return parts.join(' ').trim()
 }
 
 export function generateNode (graph, node, filter) {
   const traverse = function * (graph, path) {
     for (let key of Object.keys(graph)) {
       const value = graph[key]
-      const newPath = [].concat({[key]: value}, path)
+      const newPath = path.concat({[key]: value})
       if (key.startsWith(node) && filter(newPath)) {
         yield newPath
       } else if (typeof value === 'object') {
@@ -44,8 +41,15 @@ export function generateNode (graph, node, filter) {
   return traverse(graph, [])
 }
 
-function * calculate (path, num) {
-  yield path
+function * calculate (path, num, depth) {
+  const lastEntry = valueOf(path[path.length - 1])
+  if (typeof lastEntry === 'object' && !depth) {
+    for (let key of Object.keys(lastEntry)) {
+      yield * calculate(path.concat({[key]: lastEntry[key]}), num, true)
+    }
+  } else {
+    yield path
+  }
 }
 
 export const filter = keys => path => keys.reduce((match, key) => {

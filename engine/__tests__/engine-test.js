@@ -67,8 +67,9 @@ describe('engine', () => {
 
   describe('generateNode', () => {
     const filter = () => true
-    it('should return generator bound to graph', () => {
-      expect(generateNode(foodGraph, 'version', filter).next().value).toEqual([
+    it('should return iterator bound to graph', () => {
+      const it = generateNode(foodGraph, 'version', filter)
+      expect(it.next().value).toEqual([
         {version: foodGraph.version}
       ])
     })
@@ -92,12 +93,12 @@ describe('engine', () => {
     it('should return multiple items for shared key', () => {
       const items = generateNode(foodGraph, 'fried', filter)
       expect(items.next().value).toEqual([
-        {fried: foodGraph.beef.fried},
-        {beef: foodGraph.beef}
+        {beef: foodGraph.beef},
+        {fried: foodGraph.beef.fried}
       ])
       expect(items.next().value).toEqual([
-        {fried: foodGraph.chicken.fried},
-        {chicken: foodGraph.chicken}
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried}
       ])
       expect(items.next().done).toBe(true)
     })
@@ -109,15 +110,15 @@ describe('engine', () => {
     it('should return multiple items for partial key', () => {
       const items = generateNode(foodGraph, 'oi', filter)
       expect(items.next().value).toEqual([
-        {oil: 300},
+        {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried},
-        {beef: foodGraph.beef}
+        {oil: 300}
       ])
       expect(items.next().value).toEqual([
-        {oil: 340},
-        {temp: foodGraph.chicken.fried.temp},
+        {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
-        {chicken: foodGraph.chicken}
+        {temp: foodGraph.chicken.fried.temp},
+        {oil: 340}
       ])
     })
   })
@@ -148,19 +149,39 @@ describe('engine', () => {
   describe('alias', () => {
     it('should map to alias text', () => {
       expect(alias(aliasGraph, [
-          {chicken: foodGraph.chicken},
-          {fried: foodGraph.chicken.fried}
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried}
       ])).toBe('fried chicken')
     })
     it('should partial map to alias text', () => {
       expect(alias(aliasGraph, [
-          {fried: foodGraph.chicken.fried}
-      ])).toBe('fried chicken')
+        {chicken: foodGraph.chicken},
+        {poached: foodGraph.chicken.fried}
+      ])).toBe('chicken poached')
+    })
+    it('should partial map branch text', () => {
+      expect(alias(aliasGraph, [
+        {chicken: foodGraph.chicken}
+      ])).toBe('chicken')
+    })
+    it('should multi map to alias text', () => {
+      expect(alias(aliasGraph, [
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried},
+        {temp: foodGraph.chicken.fried.temp},
+        {oil: 340}
+      ])).toBe('fried chicken oil temperature')
     })
     it('should substitute missing alias leaf text', () => {
       expect(alias(aliasGraph, [
-          {chicken: foodGraph.chicken}
-      ])).toBe('chicken')
+        {beef: foodGraph.beef}
+      ])).toBe('beef')
+    })
+    it('should substitute missing alias leaf text', () => {
+      expect(alias(aliasGraph, [
+        {beef: foodGraph.beef},
+        {fried: foodGraph.beef.fried}
+      ])).toBe('beef fried')
     })
   })
 
@@ -168,19 +189,37 @@ describe('engine', () => {
     it('should return entries for each path key', () => {
       const path = generatePath(foodGraph, ['chicken', 'fried'])
       expect(path.next().value).toEqual([
+        {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
-        {chicken: foodGraph.chicken}
+        {temp: foodGraph.chicken.fried.temp}
       ])
     })
     it('should return multiple entries for shared keys', () => {
       const path = generatePath(foodGraph, ['fried'])
       expect(path.next().value).toEqual([
+        {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried},
-        {beef: foodGraph.beef}
+        {oil: foodGraph.beef.fried.oil}
       ])
       expect(path.next().value).toEqual([
+        {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
-        {chicken: foodGraph.chicken}
+        {temp: foodGraph.chicken.fried.temp}
+      ])
+    })
+    it('should return all child paths', () => {
+      const path = generatePath(foodGraph, ['chicken', 'fried', 'temp'])
+      expect(path.next().value).toEqual([
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried},
+        {temp: foodGraph.chicken.fried.temp},
+        {oil: foodGraph.chicken.fried.temp.oil}
+      ])
+      expect(path.next().value).toEqual([
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried},
+        {temp: foodGraph.chicken.fried.temp},
+        {int: foodGraph.chicken.fried.temp.int}
       ])
     })
 
@@ -201,6 +240,12 @@ describe('engine', () => {
       const path = generateList(foodGraph, aliasGraph)(['c', 'chicken'])
       path.next()
       expect(path.next().done).toBe(true)
+    })
+    it('should return multiple items for shared key', () => {
+      const items = generateList(foodGraph, aliasGraph)(['fried'])
+      expect(items.next().value).toBe('beef fried oil')
+      expect(items.next().value).toBe('fried chicken temp')
+      expect(items.next().done).toBe(true)
     })
   })
 })
