@@ -23,6 +23,12 @@ export const alias = (graph, path) => {
     parts = parts.concat(traverse(graph, keys, []))
   }
 
+  const lastEntry = valueOf(path[path.length - 1])
+  if (typeof lastEntry !== 'object') {
+    console.log(lastEntry)
+    parts.push(lastEntry)
+    console.log( parts.join(' ').trim())
+  }
   return parts.join(' ').trim()
 }
 

@@ -170,7 +170,7 @@ describe('engine', () => {
         {fried: foodGraph.chicken.fried},
         {temp: foodGraph.chicken.fried.temp},
         {oil: 340}
-      ])).toBe('fried chicken oil temperature')
+      ])).toBe('fried chicken oil temperature 340')
     })
     it('should substitute missing alias leaf text', () => {
       expect(alias(aliasGraph, [
@@ -243,7 +243,7 @@ describe('engine', () => {
     })
     it('should return multiple items for shared key', () => {
       const items = generateList(foodGraph, aliasGraph)(['fried'])
-      expect(items.next().value).toBe('beef fried oil')
+      expect(items.next().value).toBe('beef fried oil 300')
       expect(items.next().value).toBe('fried chicken temp')
       expect(items.next().done).toBe(true)
     })
