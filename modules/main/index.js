@@ -65,11 +65,16 @@ export default class Main extends React.Component {
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#fff',
+    shadowRadius: 10,
+    shadowOpacity: 1.0,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    borderColor: '#fff3da',
-    paddingTop: 20
+    paddingTop: 20,
+    width: '100%'
   },
   title: {
     fontSize: 34,
@@ -84,6 +89,7 @@ const styles = StyleSheet.create({
   input: {
     marginTop: 20,
     fontSize: 18,
+    left: '10%',
     width: '80%',
     height: 60,
     borderWidth: 1,
