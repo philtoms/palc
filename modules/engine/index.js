@@ -7,17 +7,30 @@ const lastEntry = path => valueOf(path[path.length - 1])
 export const inv = unit => x => x * (1 / (formulae[unit] || unit)(1))
 
 export const aliasReducer = root => path => {
-  const traverse = (graph, keys, path) => {
+  const traverse = (graph, keys, parts) => {
     let key = keys.shift()
+    if (!key) return parts
+    let value
     if (graph[key]) {
       if (typeof graph[key] !== 'object') {
-        return graph[key]
+        value = graph[key]
       } else {
-        return traverse(graph[key], keys, path.concat(key))
+        value = traverse(graph[key], keys, [])
+        if (!Array.isArray(value) || !value.length) {
+          value = [key].concat(value)
+        }
       }
+      return parts.concat(value)
     }
-    return path.concat(key)
+    
+    value = lastEntry(path)
+    if (typeof value !== 'object') {
+      return `${value}${key}`
+    } else {
+      return key
+    }
   }
+
   const keys = path.map(keyOf)
   let parts = []
   while (keys.length) {

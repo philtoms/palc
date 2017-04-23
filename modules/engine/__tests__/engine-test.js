@@ -40,6 +40,9 @@ const aliasGraph = {
   temp: {
     oil: 'oil temperature',
     int: 'internal temperature'
+  },
+  cups: {
+    units: '1 cup ='
   }
 }
 
@@ -117,6 +120,13 @@ describe('engine', () => {
         {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried}
       ])).toBe('beef fried')
+    })
+    it('should generate full alias text', () => {
+      expect(alias([
+        {cups: foodGraph.cups},
+        {units: foodGraph.cups.units},
+        {ml: foodGraph.cups.units.ml}
+      ])).toBe('1 cup = 237ml')
     })
   })
 
@@ -221,7 +231,7 @@ describe('engine', () => {
   })
 
   describe('generator', () => {
-    fit('should return path iteration', () => {
+    it('should return path iteration', () => {
       const path = generator(foodGraph)(['chicken'])
       expect(path.next().done).toBe(false)
       expect(path.next().done).toBe(true)
