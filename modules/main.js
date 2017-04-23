@@ -1,12 +1,13 @@
 import React, {PropTypes as P} from 'react'
-import { ListView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { StyleSheet, Text, TextInput, View } from 'react-native'
 
-import generateList from '../../engine'
-import foodGraph from '../../engine/foodGraph.json'
-import aliasGraph from '../../engine/aliasGraph'
+import generator, {aliasReducer} from './engine'
+import foodGraph from './engine/foodGraph.json'
+import aliasGraph from './engine/aliasGraph'
+import Results from './results'
 
-const generate = generateList(foodGraph, aliasGraph)
-
+const generate = generator(foodGraph)
+const alias = aliasReducer(aliasGraph)
 export default class Main extends React.Component {
   static propTypes = {
     category: P.string
@@ -14,7 +15,7 @@ export default class Main extends React.Component {
 
   state = {
     inputValue: '',
-    dataSource: new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2})
+    results: []
   }
 
   componentWillUnmount () {
@@ -30,18 +31,20 @@ export default class Main extends React.Component {
     })
   }
 
-  _updateList = (it, list) => {
+  _updateList = (it, results) => {
     this.animationId = GLOBAL.requestAnimationFrame(() => {
       const path = it.next()
       if (!path.done) {
-        list.unshift(path.value)
-        this._updateList(it, list)
+        results.unshift(path.value)
+        this._updateList(it, results)
       }
-      this.setState({dataSource: this.state.dataSource.cloneWithRows(Array.from(list))})
+      this.setState({results})
     })
   }
 
   render () {
+    const {results, inputValue} = this.state
+
     return (
       <View style={styles.container}>
         <Text style={styles.title}>PALC</Text>
@@ -49,15 +52,19 @@ export default class Main extends React.Component {
         <Text style={styles.paragraph}>{this.props.category}</Text>
         <TextInput
           autoFocus
-          value={this.state.inputValue}
-          placeholder="Just type..."
+          value={inputValue}
+          placeholder="Start typing..."
           onChangeText={this._handleTextChange}
           style={styles.input}
         />
-        <ListView
-          dataSource={this.state.dataSource}
-          renderRow={rowData => <Text style={styles.listRow}>{rowData}</Text>}
-        />
+        {results.length
+          ? <Results results={results.map(alias)} />
+          : <View>
+              <Text>a number for conversions,</Text>
+              <Text>a topic such as aga, cup,</Text>
+              <Text>or chicken, beef etc...</Text>
+            </View>
+        }
       </View>
     )
   }
@@ -95,9 +102,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 10,
     color: 'black'
-  },
-  listRow: {
-    fontSize: 18,
-    minWidth: '80%'
   }
 })
