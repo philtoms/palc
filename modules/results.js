@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native'
 
 const Results = ({results}) => (
   <ScrollView>
-    results.map(result => <Text style={styles.listRow}>{result}</Text>)
+    {results.map(result => <Text style={styles.listRow}>{result}</Text>)}
   </ScrollView>
 )
 

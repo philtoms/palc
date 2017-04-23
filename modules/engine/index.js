@@ -28,19 +28,20 @@ export const aliasReducer = root => path => {
 }
 
 function * calculate (path, num, depth) {
-  const last = lastEntry(path)
-  if (typeof last === 'object' && !depth) {
-    for (let key of Object.keys(last)) {
-      const newPath = path.concat({[key]: last[key]})
-      yield * calculate(newPath, num, true)
-    }
-  } else {
-    yield path
+  if (num) {
+    path = path.map(entry => {
+      const value = valueOf(entry)
+      if (!isNaN(value)) {
+        return {[keyOf(entry)]: Math.trunc(value * num, 2)}
+      }
+      return entry
+    })
   }
+  yield path
 }
 
 export const contains = keys => path => keys.reduce((match, key) => {
-  return match && key && (!!path.find(item => keyOf(item).startsWith(key)) || !isNaN(key))
+  return match && key && (!!path.find(item => keyOf(item).startsWith(key)))
 }, true)
 
 export function generatePath (root, match) {
@@ -59,17 +60,13 @@ export function generatePath (root, match) {
 }
 
 export function * generateList (graph, keys) {
-  const cache = {}
   const allKeys = keys.map(n => n.toString().toLowerCase().trim()).filter(n => n)
   keys = allKeys.filter(k => isNaN(k))
   const keysInPath = contains(keys)
   const num = allKeys.reduce((num, key) => !isNaN(key) ? Number(key) : num, 0)
-
   for (let key of keys) {
     for (let value of generatePath(graph, key)) {
-      const pathKey = keyOf(lastEntry(value))
-      if (!cache[pathKey] && keysInPath(value)) {
-        cache[pathKey] = value
+      if (keysInPath(value)) {
         yield * calculate(value, num)
       }
     }
@@ -78,7 +75,7 @@ export function * generateList (graph, keys) {
 
 const generator = dataGraph => {
   return function * (keys) {
-    return generateList(dataGraph, keys)
+    yield * generateList(dataGraph, keys)
   }
 }
 

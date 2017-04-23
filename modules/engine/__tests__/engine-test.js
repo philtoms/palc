@@ -1,6 +1,6 @@
 import generator, { aliasReducer, inv, formulae, generatePath, generateList, contains } from '../'
 
-let foodGraph = {
+const foodGraph = {
   version: '0.0.1',
   beef: {
     int: {
@@ -23,9 +23,17 @@ let foodGraph = {
         int: 75
       }
     }
+  },
+  cups: {
+    units: {
+      ml: 237
+    },
+    '1 cup': 1,
+    '1/2 cup': 1 / 2
   }
 }
-let aliasGraph = {
+
+const aliasGraph = {
   chicken: {
     fried: 'fried chicken'
   },
@@ -177,36 +185,18 @@ describe('engine', () => {
       const path = generateList(foodGraph, ['chicken', 'fried'])
       expect(path.next().value).toEqual([
         {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried},
-        {temp: foodGraph.chicken.fried.temp}
+        {fried: foodGraph.chicken.fried}
       ])
     })
     it('should return multiple entries for shared keys', () => {
       const path = generateList(foodGraph, ['fried'])
       expect(path.next().value).toEqual([
         {beef: foodGraph.beef},
-        {fried: foodGraph.beef.fried},
-        {oil: foodGraph.beef.fried.oil}
+        {fried: foodGraph.beef.fried}
       ])
       expect(path.next().value).toEqual([
         {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried},
-        {temp: foodGraph.chicken.fried.temp}
-      ])
-    })
-    it('should return all child paths', () => {
-      const path = generateList(foodGraph, ['chicken', 'fried', 'temp'])
-      expect(path.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried},
-        {temp: foodGraph.chicken.fried.temp},
-        {oil: foodGraph.chicken.fried.temp.oil}
-      ])
-      expect(path.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried},
-        {temp: foodGraph.chicken.fried.temp},
-        {int: foodGraph.chicken.fried.temp.int}
+        {fried: foodGraph.chicken.fried}
       ])
     })
 
@@ -216,22 +206,24 @@ describe('engine', () => {
     })
 
     it('should return done for trailing space entry', () => {
-      const path = generateList(foodGraph, ['c', ' '])
-      path.next()
+      const path = generateList(foodGraph, ['chick', ' '])
+      expect(path.next().done).toBe(false)
       expect(path.next().done).toBe(true)
     })
 
-    it('should return calculated list for number entry', () => {
-      const path = generateList(foodGraph, ['c', 123])
-      path.next()
-      expect(path.next().done).toBe(true)
+    it('should return calculated entry for number', () => {
+      const path = generateList(foodGraph, ['1/2 cup', 100])
+      expect(path.next().value).toEqual([
+        {cups: foodGraph.cups},
+        {'1/2 cup': 50}
+      ])
     })
   })
 
   describe('generator', () => {
-    it('should return path iteration', () => {
-      const path = generator(foodGraph)(['c', 'chicken'])
-      path.next()
+    fit('should return path iteration', () => {
+      const path = generator(foodGraph)(['chicken'])
+      expect(path.next().done).toBe(false)
       expect(path.next().done).toBe(true)
     })
   })

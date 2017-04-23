@@ -44,7 +44,6 @@ export default class Main extends React.Component {
 
   render () {
     const {results, inputValue} = this.state
-
     return (
       <View style={styles.container}>
         <Text style={styles.title}>PALC</Text>
@@ -61,8 +60,8 @@ export default class Main extends React.Component {
           ? <Results results={results.map(alias)} />
           : <View>
               <Text>a number for conversions,</Text>
-              <Text>a topic such as aga, cup,</Text>
-              <Text>or chicken, beef etc...</Text>
+              <Text>or a topic such as aga, cup, etc,</Text>
+              <Text>or just start with chicken or beef...</Text>
             </View>
         }
       </View>
