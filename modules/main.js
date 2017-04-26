@@ -1,13 +1,13 @@
 import React, {PropTypes as P} from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
 
-import generator, {aliasReducer} from './engine'
+import generator from './engine'
 import foodGraph from './engine/foodGraph.json'
 import aliasGraph from './engine/aliasGraph'
 import Results from './results'
 
-const generate = generator(foodGraph)
-const alias = aliasReducer(aliasGraph)
+const generate = generator(foodGraph, aliasGraph)
+
 export default class Main extends React.Component {
   static propTypes = {
     category: P.string
@@ -35,15 +35,19 @@ export default class Main extends React.Component {
     this.animationId = GLOBAL.requestAnimationFrame(() => {
       const path = it.next()
       if (!path.done) {
-        results.unshift(path.value)
+        results = results.concat(path.value)
         this._updateList(it, results)
       }
-      this.setState({results})
+      console.log(results)
+      if (this.delayId) clearTimeout(this.delayId)
+      this.delayId = setTimeout(() => this.setState({delayed: !!this.state.inputValue}), 1000)
+      this.setState({results, delayed: false})
     })
   }
 
   render () {
-    const {results, inputValue} = this.state
+    const {results, inputValue, delayed} = this.state
+
     return (
       <View style={styles.container}>
         <Text style={styles.title}>PALC</Text>
@@ -57,8 +61,10 @@ export default class Main extends React.Component {
           style={styles.input}
         />
         {results.length
-          ? <Results results={results.map(alias)} />
-          : <View>
+          ? <Results results={results} />
+          : delayed
+            ? <Text>Nothing here :(</Text>
+            : !inputValue && <View>
               <Text>a number for conversions,</Text>
               <Text>or a topic such as aga, cup, etc,</Text>
               <Text>or just start with chicken or beef...</Text>

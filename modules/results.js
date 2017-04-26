@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native'
 
 const Results = ({results}) => (
   <ScrollView>
-    {results.map(result => <Text style={styles.listRow}>{result}</Text>)}
+    {results.map(({type, value}, i) => <Text key={value + i} style={styles[type]}>{value}</Text>)}
   </ScrollView>
 )
 
@@ -12,9 +12,14 @@ Results.propTypes = {
 }
 
 const styles = StyleSheet.create({
-  listRow: {
+  branch: {
     fontSize: 18,
+    fontWeight: 'bold',
     minWidth: '80%'
+  },
+  node: {
+    fontSize: 16,
+    minWidth: '70%'
   }
 })
 

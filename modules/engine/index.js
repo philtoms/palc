@@ -1,16 +1,19 @@
 import formulae from './formulae'
 
-const keyOf = obj => Object.keys(obj)[0]
+const keyOf = obj => typeof obj === 'object' ? Object.keys(obj)[0] : ''
 const valueOf = obj => obj[keyOf(obj)]
 const lastEntry = path => valueOf(path[path.length - 1])
+const isBranch = obj => typeof obj === 'object' && !['swap', 'calc'].includes(keyOf(obj))
 
 export const inv = unit => x => x * (1 / (formulae[unit] || unit)(1))
 
+const swap = (key, value) => `${value}${key}`
+
 export const aliasReducer = root => path => {
   const traverse = (graph, keys, parts) => {
+    let value
     let key = keys.shift()
     if (!key) return parts
-    let value
     if (graph[key]) {
       if (typeof graph[key] !== 'object') {
         value = graph[key]
@@ -22,12 +25,20 @@ export const aliasReducer = root => path => {
       }
       return parts.concat(value)
     }
-    
+
     value = lastEntry(path)
-    if (typeof value !== 'object') {
-      return `${value}${key}`
-    } else {
-      return key
+    // maybe use injected functions here
+    if (!isBranch(value)) {
+      return `${key} = ${value}`
+    }
+    switch (keyOf(value)) {
+      case 'swap':
+        return swap(key, value.swap)
+      case 'calc':
+//        return calc(key, value.calc)
+      // eslint no-fallthrough
+      default:
+        return key
     }
   }
 
@@ -40,17 +51,33 @@ export const aliasReducer = root => path => {
   return parts.join(' ').trim()
 }
 
-function * calculate (path, num, depth) {
-  if (num) {
-    path = path.map(entry => {
-      const value = valueOf(entry)
-      if (!isNaN(value)) {
-        return {[keyOf(entry)]: Math.trunc(value * num, 2)}
+function * calculate (path, num) {
+  let units
+  path = path.map(entry => {
+    const value = valueOf(entry)
+    if (!units) units = value.units
+    if (!isNaN(value)) {
+      return {[keyOf(entry)]: Math.trunc(value * num, 2)}
+    }
+    return entry
+  })
+  const acc = []
+  for (let entry of path) {
+    const key = keyOf(entry)
+    const value = valueOf(entry)
+    if (value.calc && units) {
+      yield acc
+      acc.length = 0
+      for (let uk of Object.keys(units)) {
+        yield [{[key]: swap(uk, (value.calc * units[uk].swap * num).toFixed(2))}]
       }
-      return entry
-    })
+    } else {
+      acc.push(entry)
+    }
   }
-  yield path
+  if (acc.length) {
+    yield acc
+  }
 }
 
 export const contains = keys => path => keys.reduce((match, key) => {
@@ -76,19 +103,33 @@ export function * generateList (graph, keys) {
   const allKeys = keys.map(n => n.toString().toLowerCase().trim()).filter(n => n)
   keys = allKeys.filter(k => isNaN(k))
   const keysInPath = contains(keys)
-  const num = allKeys.reduce((num, key) => !isNaN(key) ? Number(key) : num, 0)
+  const num = allKeys.reduce((num, key) => !isNaN(key) ? Number(key) : num, 1)
   for (let key of keys) {
-    for (let value of generatePath(graph, key)) {
-      if (keysInPath(value)) {
-        yield * calculate(value, num)
+    for (let path of generatePath(graph, key)) {
+      if (keysInPath(path)) {
+        yield * calculate(path, num)
+        const value = lastEntry(path)
+        if (isBranch(value)) {
+          for (let key of Object.keys(value)) {
+            yield * calculate(path.concat({[key]: value[key]}), num)
+          }
+        }
       }
     }
   }
 }
 
-const generator = dataGraph => {
+const generator = (dataGraph, aliasGraph) => {
+  const alias = aliasReducer(aliasGraph)
   return function * (keys) {
-    yield * generateList(dataGraph, keys)
+    for (let path of generateList(dataGraph, keys)) {
+      const value = lastEntry(path)
+      const type = isBranch(value) ? 'branch' : 'node'
+      yield {
+        type,
+        value: alias(path)
+      }
+    }
   }
 }
 
