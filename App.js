@@ -1,7 +1,7 @@
 import React from 'react'
 import { Image, StyleSheet } from 'react-native'
-import Layout from './modules/layout'
-import Main from './modules/main'
+import Layout from './modules/components/layout'
+import Main from './modules/components/main'
 import backgroundImg from './assets/palc1.png'
 
 export default class App extends React.Component {

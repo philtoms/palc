@@ -1,10 +1,11 @@
 import React, {PropTypes as P} from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
 
-import generator from './engine'
-import foodGraph from './engine/foodGraph.json'
-import aliasGraph from './engine/aliasGraph'
 import Results from './results'
+
+import generator from '../engine'
+import foodGraph from '../engine/foodGraph.json'
+import aliasGraph from '../engine/aliasGraph'
 
 const generate = generator(foodGraph, aliasGraph)
 
@@ -37,9 +38,10 @@ export default class Main extends React.Component {
       if (!path.done) {
         results = results.concat(path.value)
         this._updateList(it, results)
+        return
       }
-      console.log(results)
-      if (this.delayId) clearTimeout(this.delayId)
+      // console.log(results)
+      clearTimeout(this.delayId)
       this.delayId = setTimeout(() => this.setState({delayed: !!this.state.inputValue}), 1000)
       this.setState({results, delayed: false})
     })
@@ -59,9 +61,10 @@ export default class Main extends React.Component {
           placeholder="Start typing..."
           onChangeText={this._handleTextChange}
           style={styles.input}
+          underlineColorAndroid="rgba(0,0,0,0)"
         />
         {results.length
-          ? <Results results={results} />
+          ? <Results results={results} handleClick={this._handleTextChange}/>
           : delayed
             ? <Text>Nothing here :(</Text>
             : !inputValue && <View>
@@ -85,7 +88,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 20,
+    padding: 20,
     width: '100%'
   },
   title: {
@@ -101,8 +104,7 @@ const styles = StyleSheet.create({
   input: {
     marginTop: 20,
     fontSize: 18,
-    left: '10%',
-    width: '80%',
+    width: '100%',
     height: 60,
     borderWidth: 1,
     padding: 10,
