@@ -3,11 +3,11 @@ import generator, { aliasReducer, inv, formulae, generatePath, generateList, con
 const foodGraph = {
   version: '0.0.1',
   beef: {
+    units: {
+      c: 1
+    },
     int: {
-      temp: {
-        value: 80,
-        unit: 'cel'
-      }
+      temp: 80
     },
     fried: {
       oil: 300
@@ -17,6 +17,9 @@ const foodGraph = {
     }
   },
   chicken: {
+    units: {
+      c: 1
+    },
     fried: {
       temp: {
         oil: 340,
@@ -26,10 +29,10 @@ const foodGraph = {
   },
   cups: {
     units: {
-      ml: {swap: 237}
+      ml: 237
     },
-    '1 cup': {calc: 1},
-    '1/2 cup': {calc: 1 / 2}
+    '1 cup': 1,
+    '1/2 cup': 0.5
   }
 }
 
@@ -40,9 +43,6 @@ const aliasGraph = {
   temp: {
     oil: 'oil temperature',
     int: 'internal temperature'
-  },
-  cups: {
-    units: '1 cup ='
   }
 }
 
@@ -95,7 +95,7 @@ describe('engine', () => {
       expect(alias([
         {chicken: foodGraph.chicken},
         {poached: foodGraph.chicken.fried}
-      ])).toBe('chicken poached')
+      ])).toBe('chicken, poached')
     })
     it('should partial map branch text', () => {
       expect(alias([
@@ -108,7 +108,7 @@ describe('engine', () => {
         {fried: foodGraph.chicken.fried},
         {temp: foodGraph.chicken.fried.temp},
         {oil: 340}
-      ])).toBe('fried chicken oil temperature')
+      ])).toBe('fried chicken, oil temperature')
     })
     it('should substitute missing alias text', () => {
       expect(alias([
@@ -119,61 +119,70 @@ describe('engine', () => {
       expect(alias([
         {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried}
-      ])).toBe('beef fried')
+      ])).toBe('beef, fried')
     })
   })
 
   describe('generatePath', () => {
+    let iter
+    afterEach(() => {
+      expect(iter.next().done).toBe(true)
+    })
     it('should return iterator bound to graph', () => {
-      const it = generatePath(foodGraph, 'version')
-      expect(it.next().value).toEqual([
+      iter = generatePath(foodGraph, 'version')
+      expect(iter.next().value).toEqual([
         {version: foodGraph.version}
       ])
     })
     it('should return path for branch key', () => {
-      expect(generatePath(foodGraph, 'chicken').next().value).toEqual([
+      iter = generatePath(foodGraph, 'chicken')
+      expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken}
       ])
     })
     it('should return empty path for missing key', () => {
-      expect(generatePath(foodGraph, 'xxx').next().value).toEqual(undefined)
+      iter = generatePath(foodGraph, 'xxx')
+      expect(iter.next().value).toEqual(undefined)
     })
     it('should return path for partial branch key', () => {
-      expect(generatePath(foodGraph, 'chick').next().value).toEqual([
+      iter = generatePath(foodGraph, 'chick')
+      expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken}
       ])
     })
     it('should return full path for nested key', () => {
-      expect(generatePath(foodGraph, 'broiled').next().value).toEqual([
+      iter = generatePath(foodGraph, 'broiled')
+      expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
         {broiled: foodGraph.beef.broiled}
       ])
     })
     it('should return multiple paths for shared key', () => {
-      const paths = generatePath(foodGraph, 'fried')
-      expect(paths.next().value).toEqual([
+      iter = generatePath(foodGraph, 'fried')
+      expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried}
       ])
-      expect(paths.next().value).toEqual([
+      expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried}
       ])
-      expect(paths.next().done).toBe(true)
+      expect(iter.next().done).toBe(true)
     })
     it('should return path for partial key', () => {
-      expect(generatePath(foodGraph, 'v').next().value).toEqual([
+      iter = generatePath(foodGraph, 'v')
+      expect(iter.next().value).toEqual([
         {version: foodGraph.version}
       ])
     })
     it('should return multiple paths for shared partial key', () => {
-      const paths = generatePath(foodGraph, 'oi')
-      expect(paths.next().value).toEqual([
+      iter = generatePath(foodGraph, 'oi')
+      expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried},
         {oil: 300}
       ])
-      expect(paths.next().value).toEqual([
+      expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
         {temp: foodGraph.chicken.fried.temp},
@@ -183,83 +192,99 @@ describe('engine', () => {
   })
 
   describe('generateList', () => {
-    it('should return entries for each path key', () => {
-      const path = generateList(foodGraph, ['chicken', 'fried'])
-      expect(path.next().value).toEqual([
+    let iter
+    afterEach(() => {
+      expect(iter.next().done).toBe(true)
+    })
+    it('should return paths for each path key', () => {
+      iter = generateList(foodGraph, ['chicken', 'fried'])
+      expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried}
       ])
     })
-    it('should return multiple entries for shared keys', () => {
-      const path = generateList(foodGraph, ['fried'])
-      expect(path.next().value).toEqual([
+    it('should return multiple paths for shared keys', () => {
+      iter = generateList(foodGraph, ['fried'])
+      // for (let p of path) {
+      //   console.log(p)
+      // }
+      expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried}
       ])
-      expect(path.next().value).toEqual([
-        {beef: foodGraph.beef},
-        {fried: foodGraph.beef.fried},
-        {oil: foodGraph.beef.fried.oil}
-      ])
-      expect(path.next().value).toEqual([
+      expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried}
-      ])
-      expect(path.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried},
-        {temp: foodGraph.chicken.fried.temp}
       ])
     })
 
     it('should return empty list for unknown keys', () => {
-      const path = generateList(foodGraph, ['xxx'])
-      expect(path.next().done).toBe(true)
-    })
-
-    it('should return done for trailing space entry', () => {
-      const path = generateList(foodGraph, ['version', ' '])
-      expect(path.next().done).toBe(false)
-      expect(path.next().done).toBe(true)
-    })
-
-    it('should return calculated entry for number', () => {
-      const path = generateList(foodGraph, ['1/2 cup', 2])
-      expect(path.next().value).toEqual([
-        {cups: foodGraph.cups}
-      ])
-      expect(path.next().value).toEqual([
-        {'1/2 cup': '237.00ml'}
-      ])
+      iter = generateList(foodGraph, ['xxx'])
+      expect(iter.next().done).toBe(true)
     })
   })
 
   describe('generator', () => {
-    it('should return path iteration', () => {
-      const path = generator(foodGraph, aliasGraph)(['version'])
-      expect(path.next().done).toBe(false)
-      expect(path.next().done).toBe(true)
+    let iter
+    afterEach(() => {
+      expect(iter.next().done).toBe(true)
     })
-    it('should return aliased path values for branch', () => {
-      const path = generator(foodGraph, aliasGraph)(['chicken'])
-      expect(path.next().value).toEqual({
-        type: 'branch',
-        value: 'chicken'
+    it('should generate iteration', () => {
+      iter = generator(foodGraph, aliasGraph)(['version'])
+      expect(iter.next().done).toBe(false)
+      expect(iter.next().done).toBe(true)
+    })
+    it('should return entry', () => {
+      iter = generator(foodGraph, aliasGraph)(['version'])
+      expect(iter.next().value).toEqual({type: 'node', value: 'version = 0.0.1'})
+    })
+    it('should return done for trailing space entry', () => {
+      iter = generator(foodGraph, aliasGraph)(['version', ' '])
+      expect(iter.next().done).toBe(false)
+      expect(iter.next().done).toBe(true)
+    })
+    it('should return calculated entry for number', () => {
+      iter = generator(foodGraph, aliasGraph)(['1/2'])
+      expect(iter.next().value).toEqual({
+        type: 'branch', value: 'cups'
       })
-      expect(path.next().value).toEqual({
-        type: 'branch',
-        value: 'fried chicken'
+      expect(iter.next().value).toEqual({
+        type: 'node', value: '1/2 cup = 118.50ml'
       })
     })
-    it('should return aliased path values for node', () => {
-      const path = generator(foodGraph, aliasGraph)(['1/2'])
-      expect(path.next().value).toEqual({
+    it('should return multiplied entry for number', () => {
+      iter = generator(foodGraph, aliasGraph)(['1/2 cup', 2])
+      expect(iter.next().value).toEqual(
+        {type: 'branch', value: 'cups'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: '1/2 cup = 237.00ml'}
+      )
+    })
+    it('should calculate nodes for branch', () => {
+      iter = generator(foodGraph, aliasGraph)(['cups'])
+      expect(iter.next().value).toEqual({
         type: 'branch',
         value: 'cups'
       })
-      expect(path.next().value).toEqual({
+      expect(iter.next().value).toEqual({
+        type: 'node',
+        value: '1 cup = 237.00ml'
+      })
+      expect(iter.next().value).toEqual({
         type: 'node',
         value: '1/2 cup = 118.50ml'
+      })
+    })
+    it('should return aliased path values for branch', () => {
+      iter = generator(foodGraph, aliasGraph)(['chicken'])
+      expect(iter.next().value).toEqual({
+        type: 'branch',
+        value: 'chicken'
+      })
+      expect(iter.next().value).toEqual({
+        type: 'node',
+        value: 'fried chicken'
       })
     })
   })

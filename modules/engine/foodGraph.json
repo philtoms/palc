@@ -1,17 +1,20 @@
 {
   "version": "0.0.1",
   "beef": {
+    "units": {
+      "c": 1
+    },
     "int": {
-      "temp": {
-        "value": 80,
-        "unit": "cel"
-      }
+      "temp": 80
     },
     "fried": {
       "oil": 300
     }
   },
   "chicken": {
+    "units": {
+      "c": 1
+    },
     "fried": {
       "temp": {
         "oil": 340,
@@ -21,9 +24,9 @@
   },
   "cups": {
     "units": {
-      "ml": {"swap": 237}
+      "ml": 237
     },
-    "1 cup": {"calc": 1},
-    "1/2 cup": {"calc": 0.5}
+    "1 cup": 1,
+    "1/2 cup": 0.5
   }
 }
