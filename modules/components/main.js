@@ -3,9 +3,9 @@ import { StyleSheet, Text, TextInput, View } from 'react-native'
 
 import Results from './results'
 
-import generator from '../engine'
-import foodGraph from '../engine/foodGraph.json'
-import aliasGraph from '../engine/aliasGraph'
+import generator from '../graph'
+import foodGraph from '../graph/foodGraph.json'
+import aliasGraph from '../graph/aliasGraph'
 
 const generate = generator(foodGraph, aliasGraph)
 

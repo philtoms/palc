@@ -1,4 +1,4 @@
-import generator, { aliasReducer, inv, formulae, generatePath, generateList, contains } from '../'
+import generator, { aliasReducer, calculate, inv, formulae, generatePath, generateList, contains, parse } from '../'
 
 const foodGraph = {
   version: '0.0.1',
@@ -46,13 +46,31 @@ const aliasGraph = {
   }
 }
 
-describe('engine', () => {
+describe('graph', () => {
   describe('formulae', () => {
     it('should calculate ivnverse values for key', () => {
       expect(inv('oz_gm')(1).toFixed(4)).toBe('0.0353')
     })
     it('should calculate ivnverse values for formula', () => {
       expect(inv(formulae.oz_gm)(1).toFixed(4)).toBe('0.0353')
+    })
+  })
+
+  describe('parse', () => {
+    it('should return defaults', () => {
+      expect(parse(['a'])).toEqual([['a'], 1, 'x'])
+    })
+    it('should return numbers', () => {
+      expect(parse(['a', '123'])).toEqual([['a'], 123, 'x'])
+    })
+    it('should return ops', () => {
+      expect(parse(['a', '123', '/'])).toEqual([['a'], 123, '/'])
+    })
+    it('should return opnums', () => {
+      expect(parse(['a', '/123'])).toEqual([['a'], 123, '/'])
+    })
+    it('should n oormlise ops', () => {
+      expect(parse(['a', '*123'])).toEqual([['a'], 123, 'x'])
     })
   })
 
@@ -120,6 +138,43 @@ describe('engine', () => {
         {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried}
       ])).toBe('beef, fried')
+    })
+  })
+
+  describe('calculate', () => {
+    let iter
+    afterEach(() => {
+      expect(iter.next().done).toBe(true)
+    })
+    it('should parse key value', () => {
+      iter = calculate(foodGraph, null)
+      expect(iter.next().value).toEqual(
+        'version = 0.0.1'
+      )
+    })
+    it('should calculate units', () => {
+      iter = calculate(foodGraph.beef.int, foodGraph.beef.units)
+      expect(iter.next().value).toEqual(
+        'temp = 80.00c'
+      )
+    })
+    it('should multiply unit by default', () => {
+      iter = calculate(foodGraph.beef.int, foodGraph.beef.units, 2)
+      expect(iter.next().value).toEqual(
+        'temp x 2 = 160.00c'
+      )
+    })
+    it('should multiply units', () => {
+      iter = calculate(foodGraph.beef.int, foodGraph.beef.units, 2, 'x')
+      expect(iter.next().value).toEqual(
+        'temp x 2 = 160.00c'
+      )
+    })
+    it('should divide units', () => {
+      iter = calculate(foodGraph.beef.int, foodGraph.beef.units, 2, '/')
+      expect(iter.next().value).toEqual(
+        'temp / 2 = 40.00c'
+      )
     })
   })
 
@@ -258,7 +313,16 @@ describe('engine', () => {
         {type: 'branch', value: 'cups'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1/2 cup = 237.00ml'}
+        {type: 'node', value: '1/2 cup x 2 = 237.00ml'}
+      )
+    })
+    it('should return divided entry for number', () => {
+      iter = generator(foodGraph, aliasGraph)(['1/2 cup', '/2'])
+      expect(iter.next().value).toEqual(
+        {type: 'branch', value: 'cups'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: '1/2 cup / 2 = 59.25ml'}
       )
     })
     it('should calculate nodes for branch', () => {
