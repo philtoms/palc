@@ -31,18 +31,26 @@ export const aliasReducer = graph => path => {
   return path.reduce(traverse, {graph, value: ['']}).value.filter(k => k).join(', ').trim()
 }
 
-export function parse (input) {
-  const keys = input.map(k => k.toString().toLowerCase().trim())
-  const op = input.reduce((op, key, i) => {
-    if ('x/*'.indexOf(key[0]) !== -1) {
-      const op = key[0]
-      keys[i] = key.substr(1)
-      return (op === '*' ? 'x' : op)
+export function parse (input, history = []) {
+  const inputs = input.split(/\s+/).map(k => k.toString().toLowerCase().trim())
+  const keys = []
+  const op = inputs.reduce((op, key, i) => {
+    // very limited memory - just split numbers from last key
+    const next = key.replace(history[i], '')
+    if (key !== history[i] && key.indexOf(history[i]) === 0 && !isNaN(next)) {
+      keys.push(history[i])
+      key = next
     }
-    return op
+    if ('x/*'.indexOf(key[0]) !== -1) {
+      op = key[0]
+      key = key.substr(1)
+    }
+    keys.push(key)
+    return (op === '*' ? 'x' : op)
   }, 'x')
+
   const num = keys.filter(k => k).reduce((num, key) => isNum(key) ? Number(key) : num, 1)
-  return [keys.filter(k => k && isNaN(k)), num, op]
+  return [keys.filter(k => k && isNaN(k)), num, op, inputs]
 }
 
 export function * calculate (entry, units = null, num = 1, op = 'x') {
@@ -95,8 +103,10 @@ export function * generateList (graph, keys) {
 
 const generator = (dataGraph, aliasGraph) => {
   const alias = aliasReducer(aliasGraph)
+  let history = []
   return function * input (input) {
-    const [keys, num, op] = parse(input)
+    const [keys, num, op, inputs] = parse(input, history)
+    history = inputs
     const generateEntry = function * (path, units, isPath) {
       const entry = lastEntry(path)
       if (isBranch(path)) {

@@ -28,7 +28,7 @@ export default class Main extends React.Component {
       inputValue
     }, () => {
       GLOBAL.cancelAnimationFrame(this.animationId)
-      this._updateList(generate(inputValue.split(/\s+/)), [])
+      this._updateList(generate(inputValue), [])
     })
   }
 
@@ -70,7 +70,7 @@ export default class Main extends React.Component {
             : !inputValue && <View>
               <Text>a number for conversions,</Text>
               <Text>or a topic such as aga, cup, etc,</Text>
-              <Text>or just start with chicken or beef...</Text>
+              <Text>or just type chicken...</Text>
             </View>
         }
       </View>

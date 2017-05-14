@@ -58,19 +58,22 @@ describe('graph', () => {
 
   describe('parse', () => {
     it('should return defaults', () => {
-      expect(parse(['a'])).toEqual([['a'], 1, 'x'])
+      expect(parse('a')).toEqual([['a'], 1, 'x', ['a']])
     })
     it('should return numbers', () => {
-      expect(parse(['a', '123'])).toEqual([['a'], 123, 'x'])
+      expect(parse('a 123')).toEqual([['a'], 123, 'x', ['a', '123']])
     })
     it('should return ops', () => {
-      expect(parse(['a', '123', '/'])).toEqual([['a'], 123, '/'])
+      expect(parse('a 123 /')).toEqual([['a'], 123, '/', ['a', '123', '/']])
     })
     it('should return opnums', () => {
-      expect(parse(['a', '/123'])).toEqual([['a'], 123, '/'])
+      expect(parse('a /123')).toEqual([['a'], 123, '/', ['a', '/123']])
     })
-    it('should n oormlise ops', () => {
-      expect(parse(['a', '*123'])).toEqual([['a'], 123, 'x'])
+    it('should normlise ops', () => {
+      expect(parse('a *123')).toEqual([['a'], 123, 'x', ['a', '*123']])
+    })
+    it('should disambiguate numbers', () => {
+      expect(parse('a2', ['a'])).toEqual([['a'], 2, 'x', ['a2']])
     })
   })
 
@@ -285,21 +288,21 @@ describe('graph', () => {
       expect(iter.next().done).toBe(true)
     })
     it('should generate iteration', () => {
-      iter = generator(foodGraph, aliasGraph)(['version'])
+      iter = generator(foodGraph, aliasGraph)('version')
       expect(iter.next().done).toBe(false)
       expect(iter.next().done).toBe(true)
     })
     it('should return entry', () => {
-      iter = generator(foodGraph, aliasGraph)(['version'])
+      iter = generator(foodGraph, aliasGraph)('version')
       expect(iter.next().value).toEqual({type: 'node', value: 'version = 0.0.1'})
     })
     it('should return done for trailing space entry', () => {
-      iter = generator(foodGraph, aliasGraph)(['version', ' '])
+      iter = generator(foodGraph, aliasGraph)('version  ')
       expect(iter.next().done).toBe(false)
       expect(iter.next().done).toBe(true)
     })
     it('should return calculated entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)(['1/2'])
+      iter = generator(foodGraph, aliasGraph)('1/2')
       expect(iter.next().value).toEqual({
         type: 'branch', value: 'cups'
       })
@@ -308,7 +311,7 @@ describe('graph', () => {
       })
     })
     it('should return multiplied entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)(['1/2 cup', 2])
+      iter = generator(foodGraph, aliasGraph)('1/2 cup 2')
       expect(iter.next().value).toEqual(
         {type: 'branch', value: 'cups'}
       )
@@ -317,7 +320,7 @@ describe('graph', () => {
       )
     })
     it('should return divided entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)(['1/2 cup', '/2'])
+      iter = generator(foodGraph, aliasGraph)('1/2 cup /2')
       expect(iter.next().value).toEqual(
         {type: 'branch', value: 'cups'}
       )
@@ -326,7 +329,7 @@ describe('graph', () => {
       )
     })
     it('should calculate nodes for branch', () => {
-      iter = generator(foodGraph, aliasGraph)(['cups'])
+      iter = generator(foodGraph, aliasGraph)('cups')
       expect(iter.next().value).toEqual({
         type: 'branch',
         value: 'cups'
@@ -341,7 +344,7 @@ describe('graph', () => {
       })
     })
     it('should return aliased path values for branch', () => {
-      iter = generator(foodGraph, aliasGraph)(['chicken'])
+      iter = generator(foodGraph, aliasGraph)('chicken')
       expect(iter.next().value).toEqual({
         type: 'branch',
         value: 'chicken'
@@ -350,6 +353,21 @@ describe('graph', () => {
         type: 'node',
         value: 'fried chicken'
       })
+    })
+    it('should apply history', () => {
+      const gen = generator(foodGraph, aliasGraph)
+      iter = gen('cu')
+      while (!iter.next().done);
+      iter = gen('cu2')
+      expect(iter.next().value).toEqual(
+        {type: 'branch', value: 'cups'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: '1 cup x 2 = 474.00ml'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: '1/2 cup x 2 = 237.00ml'}
+      )
     })
   })
 })
