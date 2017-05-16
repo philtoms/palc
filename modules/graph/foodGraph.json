@@ -1,38 +1,25 @@
 {
   "version": "0.0.1",
-  "units" : {
-    "calc": {
-      "ml" : 1
-    },
-    "ml" : 1,
-    "fl oz": 0.0352
-  },
   "beef": {
-    "calc": {
-      "c": 1
-    },
+    "unit": "℃",
     "int": {
-      "temp": "80℃"
+      "temp":80
     },
     "fried": {
-      "oil": "300℃"
+      "oil": 300
     }
   },
   "chicken": {
-    "calc": {
-      "c": 1
-    },
+    "unit": "℃",
     "fried": {
       "temp": {
-        "oil": "340℃",
-        "int": "75℃"
+        "oil": 340,
+        "int": 75
       }
     }
   },
   "cups": {
-    "calc": {
-      "ml": 237
-    },
+    "unit": "cup_ml",
     "1 cup": 1,
     "1/2 cup": 0.5
   }

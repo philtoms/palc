@@ -1,13 +1,8 @@
-import generator, { aliasReducer, calculate, formulae, generatePath, generateList, contains, parse } from '../'
+import generator, { aliasReducer, calculate, convert, generatePath, generateList, contains, parse } from '../'
+import formulae from '../formulae'
 
 const foodGraph = {
   version: '0.0.1',
-  formulae: {
-    oz_gm: x => x * 28.35,
-    '℃_℉': x => (x * 1.8) + 32,
-    ml_floz: x => x * 0.0352,
-    ml_cup: x => x * 0.00352
-  },
   beef: {
     unit: {
       temp: '℃',
@@ -15,7 +10,7 @@ const foodGraph = {
     },
     temp: {
       int: 80,
-      fried: 300
+      broiled: 300
     },
     weight: {
       '1lb': 200
@@ -31,7 +26,7 @@ const foodGraph = {
     }
   },
   cups: {
-    unit: 'cup',
+    unit: 'cup_ml',
     '1 cup': 1,
     '1/2 cup': 0.5
   }
@@ -48,20 +43,21 @@ const aliasGraph = {
 }
 
 describe('graph', () => {
-  describe.only('conversions', () => {
-    const convert = formulae(foodGraph.formulae)
-
+  describe('conversions', () => {
     it('should populate formulae', () => {
-      expect(convert['oz_gm']).toBe(foodGraph.formulae['oz_gm'])
+      expect(convert['oz_gm'].gm).toBe(formulae['oz_gm'])
     })
     it('should calculate inverse values for formula', () => {
-      expect(convert['gm_oz'](1).toFixed(4)).toBe('0.0353')
+      expect(convert['gm_oz'].oz(1).toFixed(4)).toBe('0.0353')
     })
-    it('should link to -> from', () => {
-      expect(convert.ml.cup(1)).toBe(0.00352)
+    it('should link identity', () => {
+      expect(convert.ml.ml(1)).toBe(1)
     })
     it('should link from -> to', () => {
-      expect(convert.cup.ml(1).toFixed(2)).toBe('284.09')
+      expect(convert.cup.ml(1)).toBe(284)
+    })
+    it('should link to -> from', () => {
+      expect(convert.ml.cup(1).toFixed(4)).toBe('0.0035')
     })
   })
 
@@ -153,39 +149,35 @@ describe('graph', () => {
     })
   })
 
-  describe('calculate', () => {
-    let iter
-    afterEach(() => {
-      expect(iter.next().done).toBe(true)
-    })
+  describe('calculator', () => {
     it('should parse key value', () => {
-      iter = calculate(foodGraph, null)
-      expect(iter.next().value).toEqual(
+      const value = calculate(foodGraph, null)
+      expect(value).toEqual(
         'version = 0.0.1'
       )
     })
     it('should calculate units', () => {
-      iter = calculate(foodGraph.cups, foodGraph.cups.calc)
-      expect(iter.next().value).toEqual(
-        '1 cup = 237ml'
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃')
+      expect(value).toEqual(
+        'broiled = 300.00℃'
       )
     })
-    it('should multiply unit by default', () => {
-      iter = calculate(foodGraph.beef.int, foodGraph.beef.calc, 2)
-      expect(iter.next().value).toEqual(
-        '1 cup x 2 = 574ml'
+    it('should convert units', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃_℉')
+      expect(value).toEqual(
+        'broiled = 572.00℉'
       )
     })
     it('should multiply units', () => {
-      iter = calculate(foodGraph.beef.int, foodGraph.beef.calc, 2, 'x')
-      expect(iter.next().value).toEqual(
-        'temp x 2 = 160℃'
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃', 2)
+      expect(value).toEqual(
+        'broiled x 2 = 600.00℃'
       )
     })
     it('should divide units', () => {
-      iter = calculate(foodGraph.beef.int, foodGraph.beef.calc, 2, '/')
-      expect(iter.next().value).toEqual(
-        'temp / 2 = 40℃'
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃', 2, '/')
+      expect(value).toEqual(
+        'broiled / 2 = 150.00℃'
       )
     })
   })
@@ -221,39 +213,26 @@ describe('graph', () => {
       iter = generatePath(foodGraph, 'broiled')
       expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
-        {broiled: foodGraph.beef.broiled}
+        {temp: foodGraph.beef.temp},
+        {broiled: foodGraph.beef.temp.broiled}
       ])
     })
     it('should return multiple paths for shared key', () => {
-      iter = generatePath(foodGraph, 'fried')
+      iter = generatePath(foodGraph, 'temp')
       expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
-        {fried: foodGraph.beef.fried}
+        {temp: foodGraph.beef.temp}
       ])
       expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried}
+        {fried: foodGraph.chicken.fried},
+        {temp: foodGraph.chicken.fried.temp}
       ])
-      expect(iter.next().done).toBe(true)
     })
     it('should return path for partial key', () => {
       iter = generatePath(foodGraph, 'v')
       expect(iter.next().value).toEqual([
         {version: foodGraph.version}
-      ])
-    })
-    it('should return multiple paths for shared partial key', () => {
-      iter = generatePath(foodGraph, 'oi')
-      expect(iter.next().value).toEqual([
-        {beef: foodGraph.beef},
-        {fried: foodGraph.beef.fried},
-        {oil: '300℃'}
-      ])
-      expect(iter.next().value).toEqual([
-        {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried},
-        {temp: foodGraph.chicken.fried.temp},
-        {oil: '340℃'}
       ])
     })
   })
@@ -271,17 +250,15 @@ describe('graph', () => {
       ])
     })
     it('should return multiple paths for shared keys', () => {
-      iter = generateList(foodGraph, ['fried'])
-      // for (let p of path) {
-      //   console.log(p)
-      // }
+      iter = generateList(foodGraph, ['temp'])
       expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
-        {fried: foodGraph.beef.fried}
+        {temp: foodGraph.beef.temp}
       ])
       expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken},
-        {fried: foodGraph.chicken.fried}
+        {fried: foodGraph.chicken.fried},
+        {temp: foodGraph.chicken.fried.temp}
       ])
     })
 
@@ -316,7 +293,7 @@ describe('graph', () => {
         type: 'branch', value: 'cups'
       })
       expect(iter.next().value).toEqual({
-        type: 'node', value: '1/2 cup = 118.50ml'
+        type: 'node', value: '1/2 cup = 142.00ml'
       })
     })
     it('should return multiplied entry for number', () => {
@@ -325,7 +302,7 @@ describe('graph', () => {
         {type: 'branch', value: 'cups'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1/2 cup x 2 = 237.00ml'}
+        {type: 'node', value: '1/2 cup x 2 = 284.00ml'}
       )
     })
     it('should return divided entry for number', () => {
@@ -334,7 +311,7 @@ describe('graph', () => {
         {type: 'branch', value: 'cups'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1/2 cup / 2 = 59.25ml'}
+        {type: 'node', value: '1/2 cup / 2 = 71.00ml'}
       )
     })
     it('should calculate nodes for branch', () => {
@@ -345,11 +322,11 @@ describe('graph', () => {
       })
       expect(iter.next().value).toEqual({
         type: 'node',
-        value: '1 cup = 237.00ml'
+        value: '1 cup = 284.00ml'
       })
       expect(iter.next().value).toEqual({
         type: 'node',
-        value: '1/2 cup = 118.50ml'
+        value: '1/2 cup = 142.00ml'
       })
     })
     it('should return aliased path values for branch', () => {
@@ -372,10 +349,10 @@ describe('graph', () => {
         {type: 'branch', value: 'cups'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1 cup x 2 = 474.00ml'}
+        {type: 'node', value: '1 cup x 2 = 568.00ml'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1/2 cup x 2 = 237.00ml'}
+        {type: 'node', value: '1/2 cup x 2 = 284.00ml'}
       )
     })
   })
