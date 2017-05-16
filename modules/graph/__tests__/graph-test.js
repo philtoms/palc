@@ -1,4 +1,4 @@
-import generator, { aliasReducer, calculate, convert, generatePath, generateList, contains, parse } from '../'
+import generator, { map, units, aliasReducer, calculate, convert, generatePath, generateList, contains, parse } from '../'
 import formulae from '../formulae'
 
 const foodGraph = {
@@ -6,7 +6,7 @@ const foodGraph = {
   beef: {
     unit: {
       temp: '℃',
-      time: 'mins'
+      weight: 'mins'
     },
     temp: {
       int: 80,
@@ -17,9 +17,9 @@ const foodGraph = {
     }
   },
   chicken: {
+    unit: '℃',
     fried: {
       temp: {
-        unit: '℃',
         oil: 340,
         int: 75
       }
@@ -43,6 +43,59 @@ const aliasGraph = {
 }
 
 describe('graph', () => {
+  describe('map', () => {
+    it('translates key to value', () => {
+      expect(map('f')).toBe('℉')
+    })
+    it('normalises translation', () => {
+      expect(map('F ')).toBe('℉')
+    })
+  })
+
+  describe('units', () => {
+    it('should extract unit', () => {
+      expect(units([{cups: foodGraph.cups}])).toBe('cup_ml')
+    })
+    it('should extract nested unit', () => {
+      expect(units([
+        {chicken: foodGraph.chicken},
+        {fried: foodGraph.chicken.fried},
+        {temp: foodGraph.chicken.fried.temp}
+      ])).toBe('℃')
+    })
+    it('should extract nested keyed unit', () => {
+      expect(units([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp}
+      ])).toBe('℃')
+    })
+    it('should return unit conversion', () => {
+      expect(units([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp}
+      ], '℉')).toBe('℃_℉')
+    })
+    fit('should default to last unit', () => {
+      units([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp}
+      ], '℉')
+      expect(units([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp}
+      ])).toBe('℃_℉')
+    })
+    it('should return redundant unit conversion', () => {
+      expect(units([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp}
+      ], '℃')).toBe('℃')
+    })
+    it('should not override explicit unit conversion', () => {
+      expect(units([{cups: foodGraph.cups}], 'oz')).toBe('cup_ml')
+    })
+  })
+
   describe('conversions', () => {
     it('should populate formulae', () => {
       expect(convert['oz_gm'].gm).toBe(formulae['oz_gm'])
@@ -63,22 +116,28 @@ describe('graph', () => {
 
   describe('parse', () => {
     it('should return defaults', () => {
-      expect(parse('a')).toEqual([['a'], 1, 'x', ['a']])
+      expect(parse('a')).toEqual([['a'], 1, 'x', null, ['a']])
     })
     it('should return numbers', () => {
-      expect(parse('a 123')).toEqual([['a'], 123, 'x', ['a', '123']])
+      expect(parse('a 123')).toEqual([['a'], 123, 'x', null, ['a', '123']])
     })
     it('should return ops', () => {
-      expect(parse('a 123 /')).toEqual([['a'], 123, '/', ['a', '123', '/']])
+      expect(parse('a 123 /')).toEqual([['a'], 123, '/', null, ['a', '123', '/']])
+    })
+    it('should return unit', () => {
+      expect(parse('a 123 f')).toEqual([['a'], 123, 'x', '℉', ['a', '123', 'f']])
     })
     it('should return opnums', () => {
-      expect(parse('a /123')).toEqual([['a'], 123, '/', ['a', '/123']])
+      expect(parse('a /123')).toEqual([['a'], 123, '/', null, ['a', '/123']])
+    })
+    it('should strip commas', () => {
+      expect(parse('a, b')).toEqual([['a', 'b'], 1, 'x', null, ['a', 'b']])
     })
     it('should normlise ops', () => {
-      expect(parse('a *123')).toEqual([['a'], 123, 'x', ['a', '*123']])
+      expect(parse('a *123')).toEqual([['a'], 123, 'x', null, ['a', '*123']])
     })
     it('should disambiguate numbers', () => {
-      expect(parse('a2', ['a'])).toEqual([['a'], 2, 'x', ['a2']])
+      expect(parse('a2', ['a'])).toEqual([['a'], 2, 'x', null, ['a2']])
     })
   })
 
