@@ -73,10 +73,10 @@ export const aliasReducer = graph => path => {
 export function parse (input, history = []) {
   const inputs = input.split(/[\s,]+/).map(k => k.toString().toLowerCase().trim())
   const keys = []
-  let unit
+  let unit = null
   const op = inputs.reduce((op, key, i) => {
-    unit = unit || map(key)
-    if (unit) {
+    if (map(key)) {
+      unit = map(key)
       return op
     }
 

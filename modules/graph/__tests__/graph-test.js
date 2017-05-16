@@ -75,7 +75,7 @@ describe('graph', () => {
         {temp: foodGraph.beef.temp}
       ], '℉')).toBe('℃_℉')
     })
-    fit('should default to last unit', () => {
+    it('should default to last unit', () => {
       units([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
@@ -126,6 +126,9 @@ describe('graph', () => {
     })
     it('should return unit', () => {
       expect(parse('a 123 f')).toEqual([['a'], 123, 'x', '℉', ['a', '123', 'f']])
+    })
+    it('should return unit, num', () => {
+      expect(parse('a f 123')).toEqual([['a'], 123, 'x', '℉', ['a', 'f', '123']])
     })
     it('should return opnums', () => {
       expect(parse('a /123')).toEqual([['a'], 123, '/', null, ['a', '/123']])
