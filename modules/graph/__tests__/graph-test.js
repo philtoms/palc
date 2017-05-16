@@ -1,36 +1,37 @@
-import generator, { aliasReducer, calculate, inv, formulae, generatePath, generateList, contains, parse } from '../'
+import generator, { aliasReducer, calculate, formulae, generatePath, generateList, contains, parse } from '../'
 
 const foodGraph = {
   version: '0.0.1',
+  formulae: {
+    oz_gm: x => x * 28.35,
+    '℃_℉': x => (x * 1.8) + 32,
+    ml_floz: x => x * 0.0352,
+    ml_cup: x => x * 0.00352
+  },
   beef: {
-    units: {
-      c: 1
+    unit: {
+      temp: '℃',
+      time: 'mins'
     },
-    int: {
-      temp: 80
+    temp: {
+      int: 80,
+      fried: 300
     },
-    fried: {
-      oil: 300
-    },
-    broiled: {
-      temp: 200
+    weight: {
+      '1lb': 200
     }
   },
   chicken: {
-    units: {
-      c: 1
-    },
     fried: {
       temp: {
+        unit: '℃',
         oil: 340,
         int: 75
       }
     }
   },
   cups: {
-    units: {
-      ml: 237
-    },
+    unit: 'cup',
     '1 cup': 1,
     '1/2 cup': 0.5
   }
@@ -47,12 +48,20 @@ const aliasGraph = {
 }
 
 describe('graph', () => {
-  describe('formulae', () => {
-    it('should calculate ivnverse values for key', () => {
-      expect(inv('oz_gm')(1).toFixed(4)).toBe('0.0353')
+  describe.only('conversions', () => {
+    const convert = formulae(foodGraph.formulae)
+
+    it('should populate formulae', () => {
+      expect(convert['oz_gm']).toBe(foodGraph.formulae['oz_gm'])
     })
-    it('should calculate ivnverse values for formula', () => {
-      expect(inv(formulae.oz_gm)(1).toFixed(4)).toBe('0.0353')
+    it('should calculate inverse values for formula', () => {
+      expect(convert['gm_oz'](1).toFixed(4)).toBe('0.0353')
+    })
+    it('should link to -> from', () => {
+      expect(convert.ml.cup(1)).toBe(0.00352)
+    })
+    it('should link from -> to', () => {
+      expect(convert.cup.ml(1).toFixed(2)).toBe('284.09')
     })
   })
 
@@ -156,27 +165,27 @@ describe('graph', () => {
       )
     })
     it('should calculate units', () => {
-      iter = calculate(foodGraph.beef.int, foodGraph.beef.units)
+      iter = calculate(foodGraph.cups, foodGraph.cups.calc)
       expect(iter.next().value).toEqual(
-        'temp = 80.00c'
+        '1 cup = 237ml'
       )
     })
     it('should multiply unit by default', () => {
-      iter = calculate(foodGraph.beef.int, foodGraph.beef.units, 2)
+      iter = calculate(foodGraph.beef.int, foodGraph.beef.calc, 2)
       expect(iter.next().value).toEqual(
-        'temp x 2 = 160.00c'
+        '1 cup x 2 = 574ml'
       )
     })
     it('should multiply units', () => {
-      iter = calculate(foodGraph.beef.int, foodGraph.beef.units, 2, 'x')
+      iter = calculate(foodGraph.beef.int, foodGraph.beef.calc, 2, 'x')
       expect(iter.next().value).toEqual(
-        'temp x 2 = 160.00c'
+        'temp x 2 = 160℃'
       )
     })
     it('should divide units', () => {
-      iter = calculate(foodGraph.beef.int, foodGraph.beef.units, 2, '/')
+      iter = calculate(foodGraph.beef.int, foodGraph.beef.calc, 2, '/')
       expect(iter.next().value).toEqual(
-        'temp / 2 = 40.00c'
+        'temp / 2 = 40℃'
       )
     })
   })
@@ -238,13 +247,13 @@ describe('graph', () => {
       expect(iter.next().value).toEqual([
         {beef: foodGraph.beef},
         {fried: foodGraph.beef.fried},
-        {oil: 300}
+        {oil: '300℃'}
       ])
       expect(iter.next().value).toEqual([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
         {temp: foodGraph.chicken.fried.temp},
-        {oil: 340}
+        {oil: '340℃'}
       ])
     })
   })

@@ -1,5 +1,3 @@
-import formulae from './formulae'
-
 const isNum = value => !isNaN(value)
 const isObj = obj => typeof obj === 'object'
 const keyOf = obj => isObj(obj) ? Object.keys(obj)[0] : ''
@@ -9,13 +7,25 @@ const isNode = obj => !isObj(obj) ? true : Object.keys(obj).length === 1 && !isO
 const isBranch = obj => Object.keys(obj).length > 1 || !isNode(lastEntry(obj))
 
 const swap = (key, value) => `${value}${key}`
-const filter = graph => isObj(graph) ? Object.keys(graph).filter(k => k !== 'units') : []
-const units = path => valueOf(path[0]).units
+const filter = graph => isObj(graph) ? Object.keys(graph).filter(k => k !== 'calc') : []
+const units = path => valueOf(path[0]).calc
 
-export const inv = unit => x => x * (1 / (formulae[unit] || unit)(1))
 export const contains = keys => path => keys.reduce((match, key) => {
   return match && key && (!!path.find(item => keyOf(item).startsWith(key)))
 }, true)
+
+export const formulae = convert => {
+  const conv = Object.keys(convert).reduce((obj, key) => {
+    const [to, from] = key.split('_')
+    const inv = `${from}_${to}`
+    obj[key] = convert[key]
+    obj[inv] = x => x * (1 / conv[key](x))
+    obj[to] = {...(obj[to] || {}), [from]: obj[key]}
+    obj[from] = {...(obj[from] || {}), [to]: obj[inv]}
+    return obj
+  }, {})
+  return conv
+}
 
 export const aliasReducer = graph => path => {
   const traverse = (accum, entry) => {
@@ -57,7 +67,6 @@ export function * calculate (entry, units = null, num = 1, op = 'x') {
   const key = keyOf(entry)
   const value = valueOf(entry)
   let calc
-
   if (isNum(value) && units) {
     for (let uk of Object.keys(units)) {
       switch (op) {
@@ -135,5 +144,4 @@ const generator = (dataGraph, aliasGraph) => {
   }
 }
 
-export { formulae }
 export default generator
