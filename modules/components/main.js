@@ -1,5 +1,5 @@
 import React, {PropTypes as P} from 'react'
-import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { Animated, StyleSheet, Text, TextInput, View } from 'react-native'
 
 import Results from './results'
 
@@ -15,12 +15,41 @@ export default class Main extends React.Component {
   }
 
   state = {
+    topAnim: new Animated.Value(100),
+    fadeAnim: new Animated.Value(1),
     inputValue: '',
     results: []
   }
 
   componentWillUnmount () {
     GLOBAL.cancelAnimationFrame(this.animationId)
+  }
+
+  shouldComponentUpdate (nextProps, nextState) {
+    if (this.state.results !== nextState.results) {
+      if (this._shouldAnimate(this.state.results.length, nextState.results.length)) {
+        const {results, topAnim, fadeAnim, hasResults = !!results.length} = nextState
+        this.animating = true
+        const topValue = hasResults ? 0 : 100
+        const fadeValue = hasResults ? 0 : 1
+        const delay = hasResults ? 0 : 3000
+        Animated.parallel([
+          Animated.timing(topAnim, { toValue: topValue, delay }),
+          Animated.timing(fadeAnim, { toValue: fadeValue, delay })
+        ]).start(res => {
+          this.animating = false
+        })
+      }
+    }
+    return true
+  }
+
+  _shouldAnimate = (prev, next) => {
+    if (!this.animating) {
+      if (!prev && next) return true
+      if (prev && !next) return true
+    }
+    return false
   }
 
   _handleTextChange = inputValue => {
@@ -40,7 +69,6 @@ export default class Main extends React.Component {
         this._updateList(it, results)
         return
       }
-      // console.log(results)
       clearTimeout(this.delayId)
       this.delayId = setTimeout(() => this.setState({delayed: !!this.state.inputValue}), 1000)
       this.setState({results, delayed: false})
@@ -48,22 +76,27 @@ export default class Main extends React.Component {
   }
 
   render () {
-    const {results, inputValue, delayed} = this.state
+    const {results, inputValue, delayed, topAnim, fadeAnim, hasResults = !!results.length} = this.state
+    const animStyle = {
+      height: topAnim,
+      opacity: fadeAnim
+    }
 
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>PALC</Text>
-        <Text style={styles.paragraph}>for</Text>
-        <Text style={styles.paragraph}>{this.props.category}</Text>
+        <Animated.View style={animStyle}>
+          <Text style={styles.title}>PALC</Text>
+          <Text style={styles.paragraph}>for</Text>
+          <Text style={styles.paragraph}>{this.props.category}</Text>
+        </Animated.View>
         <TextInput
-          autoFocus
           value={inputValue}
           placeholder="Start typing..."
           onChangeText={this._handleTextChange}
           style={styles.input}
           underlineColorAndroid="rgba(0,0,0,0)"
         />
-        {results.length
+        {hasResults
           ? <Results results={results} handleClick={this._handleTextChange}/>
           : delayed
             ? <Text>Nothing here :(</Text>
@@ -102,12 +135,13 @@ const styles = StyleSheet.create({
     color: '#34495e'
   },
   input: {
-    marginTop: 20,
+    marginBottom: 10,
     fontSize: 18,
     width: '100%',
     height: 60,
     borderWidth: 1,
     padding: 10,
-    color: 'black'
+    color: 'black',
+    backgroundColor: 'white'
   }
 })
