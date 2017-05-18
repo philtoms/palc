@@ -1,6 +1,6 @@
 import formulae from './formulae'
 
-const isNum = value => !isNaN(value)
+const isNum = value => toNum(value) !== undefined
 const isObj = obj => typeof obj === 'object'
 const keyOf = obj => isObj(obj) ? Object.keys(obj)[0] : ''
 const valueOf = obj => obj[keyOf(obj)]
@@ -42,6 +42,12 @@ export const map = key => {
   return formulae.map[key] || null
 }
 
+export const toNum = str => {
+  if (!isNaN(str)) return Number(str)
+  const [n, d] = str.split('/')
+  if (!isNaN(n) && !isNaN(d)) return n / d
+}
+
 export const convert = (data => {
   const id = x => x
   const conv = Object.keys(data).reduce((obj, key) => {
@@ -70,32 +76,33 @@ export const aliasReducer = graph => path => {
   return path.reduce(traverse, {graph, value: ['']}).value.filter(k => k).join(', ').trim()
 }
 
-export function parse (input, history = []) {
-  const inputs = input.split(/[\s,]+/).map(k => k.toString().toLowerCase().trim())
+export function parse (input) {
+  const inputs = input.split(/[\s,]+/).map(k => k.toString().toLowerCase().trim()).filter(k => k)
   const keys = []
   let unit = null
+  let num = 1
   const op = inputs.reduce((op, key, i) => {
     if (map(key)) {
       unit = map(key)
       return op
     }
 
-    // very limited memory - just split numbers from last key
-    const next = key.replace(history[i], '')
-    if (key !== history[i] && key.indexOf(history[i]) === 0 && !isNaN(next)) {
-      keys.push(history[i])
-      key = next
-    }
+    // Note: -ve not supported
+    key = key.replace(/\d*([1..9]\/|[.])?\d+$/, m => { num = m; return '' })
+             .replace(/^\d*([1..9]\/|[.])?\d+/, m => { num = m; return '' })
+    if (!key) return op
+
     if ('x/*'.indexOf(key[0]) !== -1) {
       op = key[0]
       key = key.substr(1)
     }
-    keys.push(key)
+
+    if (key) keys.push(key)
+
     return (op === '*' ? 'x' : op)
   }, 'x')
 
-  const num = keys.filter(k => k).reduce((num, key) => isNum(key) ? Number(key) : num, 1)
-  return [keys.filter(k => k && isNaN(k)), num, op, unit, inputs]
+  return [keys, toNum(num), op, unit]
 }
 
 export const calculate = (entry, unit = null, num = 1, op = 'x') => {
@@ -156,10 +163,8 @@ export function * generateList (graph, keys) {
 
 const generator = (dataGraph, aliasGraph) => {
   const alias = aliasReducer(aliasGraph)
-  let history = []
   return function * input (input) {
-    const [keys, num, op, unit, inputs] = parse(input, history)
-    history = inputs
+    const [keys, num, op, unit] = parse(input)
     const generateEntry = function * (path, units, isPath) {
       const entry = lastEntry(path)
       if (isBranch(path)) {

@@ -27,8 +27,7 @@ const foodGraph = {
   },
   cups: {
     unit: 'cup_ml',
-    '1 cup': 1,
-    '1/2 cup': 0.5
+    '1 cup': 1
   }
 }
 
@@ -116,31 +115,37 @@ describe('graph', () => {
 
   describe('parse', () => {
     it('should return defaults', () => {
-      expect(parse('a')).toEqual([['a'], 1, 'x', null, ['a']])
+      expect(parse('a')).toEqual([['a'], 1, 'x', null])
     })
     it('should return numbers', () => {
-      expect(parse('a 123')).toEqual([['a'], 123, 'x', null, ['a', '123']])
+      expect(parse('a 123')).toEqual([['a'], 123, 'x', null])
     })
     it('should return ops', () => {
-      expect(parse('a 123 /')).toEqual([['a'], 123, '/', null, ['a', '123', '/']])
+      expect(parse('a 123 /')).toEqual([['a'], 123, '/', null])
     })
     it('should return unit', () => {
-      expect(parse('a 123 f')).toEqual([['a'], 123, 'x', '℉', ['a', '123', 'f']])
+      expect(parse('a 123 f')).toEqual([['a'], 123, 'x', '℉'])
     })
     it('should return unit, num', () => {
-      expect(parse('a f 123')).toEqual([['a'], 123, 'x', '℉', ['a', 'f', '123']])
+      expect(parse('a f 123')).toEqual([['a'], 123, 'x', '℉'])
     })
     it('should return opnums', () => {
-      expect(parse('a /123')).toEqual([['a'], 123, '/', null, ['a', '/123']])
+      expect(parse('a /123')).toEqual([['a'], 123, '/', null])
     })
     it('should strip commas', () => {
-      expect(parse('a, b')).toEqual([['a', 'b'], 1, 'x', null, ['a', 'b']])
+      expect(parse('a, b')).toEqual([['a', 'b'], 1, 'x', null])
     })
     it('should normlise ops', () => {
-      expect(parse('a *123')).toEqual([['a'], 123, 'x', null, ['a', '*123']])
+      expect(parse('a *123')).toEqual([['a'], 123, 'x', null])
     })
-    it('should disambiguate numbers', () => {
-      expect(parse('a2', ['a'])).toEqual([['a'], 2, 'x', null, ['a2']])
+    it('should disambiguate trailing numbers', () => {
+      expect(parse('a2')).toEqual([['a'], 2, 'x', null])
+    })
+    it('should disambiguate leading numbers', () => {
+      expect(parse('2a')).toEqual([['a'], 2, 'x', null])
+    })
+    it('should ignore embedded numbers', () => {
+      expect(parse('a2a')).toEqual([['a2a'], 1, 'x', null])
     })
   })
 
@@ -350,30 +355,30 @@ describe('graph', () => {
       expect(iter.next().done).toBe(true)
     })
     it('should return calculated entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('1/2')
+      iter = generator(foodGraph, aliasGraph)('1/2 cup')
       expect(iter.next().value).toEqual({
         type: 'branch', value: 'cups'
       })
       expect(iter.next().value).toEqual({
-        type: 'node', value: '1/2 cup = 142.00ml'
+        type: 'node', value: '1 cup x 0.5 = 142.00ml'
       })
     })
     it('should return multiplied entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('1/2 cup 2')
+      iter = generator(foodGraph, aliasGraph)('cup 2')
       expect(iter.next().value).toEqual(
         {type: 'branch', value: 'cups'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1/2 cup x 2 = 284.00ml'}
+        {type: 'node', value: '1 cup x 2 = 568.00ml'}
       )
     })
     it('should return divided entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('1/2 cup /2')
+      iter = generator(foodGraph, aliasGraph)('cup /2')
       expect(iter.next().value).toEqual(
         {type: 'branch', value: 'cups'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1/2 cup / 2 = 71.00ml'}
+        {type: 'node', value: '1 cup / 2 = 142.00ml'}
       )
     })
     it('should calculate nodes for branch', () => {
@@ -385,10 +390,6 @@ describe('graph', () => {
       expect(iter.next().value).toEqual({
         type: 'node',
         value: '1 cup = 284.00ml'
-      })
-      expect(iter.next().value).toEqual({
-        type: 'node',
-        value: '1/2 cup = 142.00ml'
       })
     })
     it('should return aliased path values for branch', () => {
@@ -412,9 +413,6 @@ describe('graph', () => {
       )
       expect(iter.next().value).toEqual(
         {type: 'node', value: '1 cup x 2 = 568.00ml'}
-      )
-      expect(iter.next().value).toEqual(
-        {type: 'node', value: '1/2 cup x 2 = 284.00ml'}
       )
     })
   })
