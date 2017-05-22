@@ -1,4 +1,4 @@
-import generator, { map, units, aliasReducer, calculate, convert, generatePath, generateList, contains, parse } from '../'
+import generator, { map, setUnits, aliasReducer, calculate, convert, generatePath, generateList, contains, parse } from '../'
 import formulae from '../formulae'
 
 const foodGraph = {
@@ -10,10 +10,11 @@ const foodGraph = {
     },
     temp: {
       int: 80,
+      fried: 200,
       broiled: 300
     },
     weight: {
-      '1lb': 200
+      'lb': 200
     }
   },
   chicken: {
@@ -28,6 +29,12 @@ const foodGraph = {
   cups: {
     unit: 'cup_ml',
     '1 cup': 1
+  },
+  units: {
+    unit: {
+      oz: 'oz_gm'
+    },
+    oz: 1
   }
 }
 
@@ -51,47 +58,60 @@ describe('graph', () => {
     })
   })
 
-  describe('units', () => {
+  describe('setUnits', () => {
     it('should extract unit', () => {
-      expect(units([{cups: foodGraph.cups}])).toBe('cup_ml')
+      expect(setUnits([{cups: foodGraph.cups}])).toBe('cup_ml')
     })
     it('should extract nested unit', () => {
-      expect(units([
+      expect(setUnits([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
         {temp: foodGraph.chicken.fried.temp}
       ])).toBe('℃')
     })
     it('should extract nested keyed unit', () => {
-      expect(units([
+      expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
       ])).toBe('℃')
     })
-    it('should return unit conversion', () => {
-      expect(units([
+    it('should extract parent keyed unit', () => {
+      expect(setUnits([
         {beef: foodGraph.beef},
-        {temp: foodGraph.beef.temp}
-      ], '℉')).toBe('℃_℉')
+        {temp: foodGraph.beef.temp},
+        {int: foodGraph.beef.temp.int}
+      ])).toBe('℃')
     })
-    it('should default to last unit', () => {
-      units([
+    it('should return unit conversion', () => {
+      expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ], '℉')
-      expect(units([
+      ], ['℉'])).toBe('℃_℉')
+    })
+    it('should not return false conversion', () => {
+      expect(setUnits([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp}
+      ], ['X'])).toBe('℃')
+    })
+    it('should default to currrently selected unit', () => {
+      setUnits([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp}
+      ], ['℉'])
+      expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
       ])).toBe('℃_℉')
     })
     it('should return redundant unit conversion', () => {
-      expect(units([
+      expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ], '℃')).toBe('℃')
+      ], ['℃'])).toBe('℃')
     })
     it('should not override explicit unit conversion', () => {
-      expect(units([{cups: foodGraph.cups}], 'oz')).toBe('cup_ml')
+      expect(setUnits([{cups: foodGraph.cups}], ['oz'])).toBe('cup_ml')
     })
   })
 
@@ -115,37 +135,37 @@ describe('graph', () => {
 
   describe('parse', () => {
     it('should return defaults', () => {
-      expect(parse('a')).toEqual([['a'], 1, 'x', null])
+      expect(parse('a')).toEqual([['a'], 1, 'x', []])
     })
     it('should return numbers', () => {
-      expect(parse('a 123')).toEqual([['a'], 123, 'x', null])
+      expect(parse('a 123')).toEqual([['a'], 123, 'x', []])
     })
     it('should return ops', () => {
-      expect(parse('a 123 /')).toEqual([['a'], 123, '/', null])
+      expect(parse('a 123 /')).toEqual([['a'], 123, '/', []])
     })
     it('should return unit', () => {
-      expect(parse('a 123 f')).toEqual([['a'], 123, 'x', '℉'])
+      expect(parse('a 123 f')).toEqual([['a'], 123, 'x', ['℉']])
     })
     it('should return unit, num', () => {
-      expect(parse('a f 123')).toEqual([['a'], 123, 'x', '℉'])
+      expect(parse('a f 123')).toEqual([['a'], 123, 'x', ['℉']])
     })
     it('should return opnums', () => {
-      expect(parse('a /123')).toEqual([['a'], 123, '/', null])
+      expect(parse('a /123')).toEqual([['a'], 123, '/', []])
     })
     it('should strip commas', () => {
-      expect(parse('a, b')).toEqual([['a', 'b'], 1, 'x', null])
+      expect(parse('a, b')).toEqual([['a', 'b'], 1, 'x', []])
     })
     it('should normlise ops', () => {
-      expect(parse('a *123')).toEqual([['a'], 123, 'x', null])
+      expect(parse('a *123')).toEqual([['a'], 123, 'x', []])
     })
     it('should disambiguate trailing numbers', () => {
-      expect(parse('a2')).toEqual([['a'], 2, 'x', null])
+      expect(parse('a2')).toEqual([['a'], 2, 'x', []])
     })
     it('should disambiguate leading numbers', () => {
-      expect(parse('2a')).toEqual([['a'], 2, 'x', null])
+      expect(parse('2a')).toEqual([['a'], 2, 'x', []])
     })
     it('should ignore embedded numbers', () => {
-      expect(parse('a2a')).toEqual([['a2a'], 1, 'x', null])
+      expect(parse('a2a')).toEqual([['a2a'], 1, 'x', []])
     })
   })
 
@@ -363,24 +383,6 @@ describe('graph', () => {
         type: 'node', value: '1 cup x 0.5 = 142.00ml'
       })
     })
-    it('should return multiplied entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('cup 2')
-      expect(iter.next().value).toEqual(
-        {type: 'branch', value: 'cups'}
-      )
-      expect(iter.next().value).toEqual(
-        {type: 'node', value: '1 cup x 2 = 568.00ml'}
-      )
-    })
-    it('should return divided entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('cup /2')
-      expect(iter.next().value).toEqual(
-        {type: 'branch', value: 'cups'}
-      )
-      expect(iter.next().value).toEqual(
-        {type: 'node', value: '1 cup / 2 = 142.00ml'}
-      )
-    })
     it('should calculate nodes for branch', () => {
       iter = generator(foodGraph, aliasGraph)('cups')
       expect(iter.next().value).toEqual({
@@ -403,16 +405,34 @@ describe('graph', () => {
         value: 'fried chicken'
       })
     })
-    it('should apply history', () => {
+    it('should append default units', () => {
       const gen = generator(foodGraph, aliasGraph)
-      iter = gen('cu')
-      while (!iter.next().done);
-      iter = gen('cu2')
+      iter = gen('b w')
       expect(iter.next().value).toEqual(
-        {type: 'branch', value: 'cups'}
+        {type: 'branch', value: 'beef, weight'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1 cup x 2 = 568.00ml'}
+        {type: 'node', value: 'lb = 200mins'}
+      )
+    })
+    it('should apply conversion', () => {
+      const gen = generator(foodGraph, aliasGraph)
+      iter = gen('b t i f')
+      expect(iter.next().value).toEqual(
+        {type: 'branch', value: 'beef, temp'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: 'int = 176.00℉'}
+      )
+    })
+    it('should list units', () => {
+      const gen = generator(foodGraph, aliasGraph)
+      iter = gen('oz')
+      expect(iter.next().value).toEqual(
+        {type: 'branch', value: 'units'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: 'oz = 28.35gm'}
       )
     })
   })

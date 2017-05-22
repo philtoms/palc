@@ -5,6 +5,9 @@ export default {
   cup_ml: x => x * 284,
   map: {
     f: '℉',
-    c: '℃'
+    c: '℃',
+    ml: 'ml',
+    gm: 'gm',
+    oz: 'oz'
   }
 }
