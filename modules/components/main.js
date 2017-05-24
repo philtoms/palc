@@ -1,6 +1,7 @@
 import React, {PropTypes as P} from 'react'
 import { Animated, StyleSheet, Text, TextInput, View } from 'react-native'
 
+import Title from './svg/Title'
 import Results from './results'
 
 import generator from '../graph'
@@ -22,47 +23,42 @@ export default class Main extends React.Component {
   }
 
   componentWillUnmount () {
-    GLOBAL.cancelAnimationFrame(this.animationId)
+    GLOBAL.cancelAnimationFrame(this.rafId)
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (this.state.results !== nextState.results) {
-      if (this._shouldAnimate(this.state.results.length, nextState.results.length)) {
-        const {results, topAnim, fadeAnim, hasResults = !!results.length} = nextState
+    const {inputValue, topAnim, fadeAnim, hasResults = !!inputValue} = nextState
+    if (hasResults !== this.hasResults && !this.animating) {
+      this.hasResults = hasResults
+      const topValue = hasResults ? 0 : 100
+      const fadeValue = hasResults ? 0 : 1
+      console.log(hasResults, this.animateId)
+      this.animating = false
+      clearTimeout(this.animateId)
+      this.animateId = setTimeout(() => {
         this.animating = true
-        const topValue = hasResults ? 0 : 100
-        const fadeValue = hasResults ? 0 : 1
-        const delay = hasResults ? 0 : 3000
         Animated.parallel([
-          Animated.timing(topAnim, { toValue: topValue, delay }),
-          Animated.timing(fadeAnim, { toValue: fadeValue, delay })
+          Animated.timing(topAnim, { toValue: topValue }),
+          Animated.timing(fadeAnim, { toValue: fadeValue })
         ]).start(res => {
           this.animating = false
         })
-      }
+      }, hasResults ? 0 : 3000)
     }
     return true
-  }
-
-  _shouldAnimate = (prev, next) => {
-    if (!this.animating) {
-      if (!prev && next) return true
-      if (prev && !next) return true
-    }
-    return false
   }
 
   _handleTextChange = inputValue => {
     this.setState({
       inputValue
     }, () => {
-      GLOBAL.cancelAnimationFrame(this.animationId)
+      GLOBAL.cancelAnimationFrame(this.rafId)
       this._updateList(generate(inputValue), [])
     })
   }
 
   _updateList = (it, results) => {
-    this.animationId = GLOBAL.requestAnimationFrame(() => {
+    this.rafId = GLOBAL.requestAnimationFrame(() => {
       const path = it.next()
       if (!path.done) {
         results = results.concat(path.value)
@@ -85,7 +81,7 @@ export default class Main extends React.Component {
     return (
       <View style={styles.container}>
         <Animated.View style={animStyle}>
-          <Text style={styles.title}>PALC</Text>
+          <Title style={styles.title} width={150} height={50}/>
           <Text style={styles.paragraph}>for</Text>
           <Text style={styles.paragraph}>{this.props.category}</Text>
         </Animated.View>
@@ -101,9 +97,10 @@ export default class Main extends React.Component {
           : delayed
             ? <Text>Nothing here :(</Text>
             : !inputValue && <View>
-              <Text>a number for conversions,</Text>
-              <Text>or a topic such as aga, cup, etc,</Text>
-              <Text>or just type chicken...</Text>
+              <Text>a unit like C or F for conversions,</Text>
+              <Text>or just U for all conversions,</Text>
+              <Text>or just type chicken or aga or...</Text>
+              <Text>just type and see :)</Text>
             </View>
         }
       </View>
