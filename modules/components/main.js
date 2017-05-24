@@ -1,6 +1,7 @@
 import React, {PropTypes as P} from 'react'
 import { Animated, StyleSheet, Text, TextInput, View } from 'react-native'
 
+import Title from './svg/Title'
 import Results from './results'
 
 import generator from '../graph'
@@ -85,7 +86,7 @@ export default class Main extends React.Component {
     return (
       <View style={styles.container}>
         <Animated.View style={animStyle}>
-          <Text style={styles.title}>PALC</Text>
+          <Title style={styles.title} width={150} height={50}/>
           <Text style={styles.paragraph}>for</Text>
           <Text style={styles.paragraph}>{this.props.category}</Text>
         </Animated.View>
