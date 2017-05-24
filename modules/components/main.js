@@ -23,47 +23,42 @@ export default class Main extends React.Component {
   }
 
   componentWillUnmount () {
-    GLOBAL.cancelAnimationFrame(this.animationId)
+    GLOBAL.cancelAnimationFrame(this.rafId)
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (this.state.results !== nextState.results) {
-      if (this._shouldAnimate(this.state.results.length, nextState.results.length)) {
-        const {results, topAnim, fadeAnim, hasResults = !!results.length} = nextState
+    const {inputValue, topAnim, fadeAnim, hasResults = !!inputValue} = nextState
+    if (hasResults !== this.hasResults && !this.animating) {
+      this.hasResults = hasResults
+      const topValue = hasResults ? 0 : 100
+      const fadeValue = hasResults ? 0 : 1
+      console.log(hasResults, this.animateId)
+      this.animating = false
+      clearTimeout(this.animateId)
+      this.animateId = setTimeout(() => {
         this.animating = true
-        const topValue = hasResults ? 0 : 100
-        const fadeValue = hasResults ? 0 : 1
-        const delay = hasResults ? 0 : 3000
         Animated.parallel([
-          Animated.timing(topAnim, { toValue: topValue, delay }),
-          Animated.timing(fadeAnim, { toValue: fadeValue, delay })
+          Animated.timing(topAnim, { toValue: topValue }),
+          Animated.timing(fadeAnim, { toValue: fadeValue })
         ]).start(res => {
           this.animating = false
         })
-      }
+      }, hasResults ? 0 : 3000)
     }
     return true
-  }
-
-  _shouldAnimate = (prev, next) => {
-    if (!this.animating) {
-      if (!prev && next) return true
-      if (prev && !next) return true
-    }
-    return false
   }
 
   _handleTextChange = inputValue => {
     this.setState({
       inputValue
     }, () => {
-      GLOBAL.cancelAnimationFrame(this.animationId)
+      GLOBAL.cancelAnimationFrame(this.rafId)
       this._updateList(generate(inputValue), [])
     })
   }
 
   _updateList = (it, results) => {
-    this.animationId = GLOBAL.requestAnimationFrame(() => {
+    this.rafId = GLOBAL.requestAnimationFrame(() => {
       const path = it.next()
       if (!path.done) {
         results = results.concat(path.value)
