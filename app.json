@@ -1,5 +1,15 @@
 {
   "expo": {
-    "sdkVersion": "15.0.0"
+    "sdkVersion": "15.0.0",
+    "name": "Palc",
+    "icon": "https://s3.amazonaws.com/exp-us-standard/rnplay/app-icon.png",
+    "version": "0.0.1",
+    "slug": "palc",
+    "ios": {
+      "bundleIdentifier": "www.palc.me"
+    },
+    "android": {
+      "package": "www.palc.me"
+    }
   }
 }
