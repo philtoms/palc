@@ -60,64 +60,49 @@ describe('graph', () => {
 
   describe('setUnits', () => {
     it('should extract unit', () => {
-      expect(setUnits([{cups: foodGraph.cups}])).toBe('cup_ml')
+      expect(setUnits([{cups: foodGraph.cups}])).toEqual(['cup', 'ml'])
     })
     it('should extract nested unit', () => {
       expect(setUnits([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
         {temp: foodGraph.chicken.fried.temp}
-      ])).toBe('℃')
+      ])).toEqual(['℃', '℃'])
     })
     it('should extract nested keyed unit', () => {
       expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ])).toBe('℃')
+      ])).toEqual(['℃', '℃'])
     })
     it('should extract parent keyed unit', () => {
       expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp},
         {int: foodGraph.beef.temp.int}
-      ])).toBe('℃')
+      ])).toEqual(['℃', '℃'])
     })
     it('should return unit conversion', () => {
       expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ], ['℉'])).toBe('℃_℉')
+      ], ['℉'])).toEqual(['℃', '℉'])
     })
-    it('should not return false conversion', () => {
+    xit('should default to currrently selected unit', () => {
+      calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℉'])
       expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ], ['X'])).toBe('℃')
+      ])).toEqual(['℃', '℉'])
     })
-    it('should default to currrently selected unit', () => {
-      setUnits([
-        {beef: foodGraph.beef},
-        {temp: foodGraph.beef.temp}
-      ], ['℉'])
-      expect(setUnits([
-        {beef: foodGraph.beef},
-        {temp: foodGraph.beef.temp}
-      ])).toBe('℃_℉')
-    })
-    it('should return redundant unit conversion', () => {
-      expect(setUnits([
-        {beef: foodGraph.beef},
-        {temp: foodGraph.beef.temp}
-      ], ['℃'])).toBe('℃')
-    })
-    it('should not override explicit unit conversion', () => {
-      expect(setUnits([{cups: foodGraph.cups}], ['oz'])).toBe('cup_ml')
+    it('should compose unit conversion', () => {
+      expect(setUnits([{cups: foodGraph.cups}], ['floz'])).toEqual(['cup', 'ml', 'floz'])
     })
   })
 
   describe('conversions', () => {
     it('should populate formulae', () => {
-      expect(convert['oz_gm'].gm).toBe(formulae['oz_gm'])
+      expect(convert['oz_gm'].gm).toBe(formulae.calc['oz_gm'])
     })
     it('should calculate inverse values for formula', () => {
       expect(convert['gm_oz'].oz(1).toFixed(4)).toBe('0.0353')
@@ -238,33 +223,45 @@ describe('graph', () => {
 
   describe('calculator', () => {
     it('should parse key value', () => {
-      const value = calculate(foodGraph, null)
+      const value = calculate(foodGraph)
       expect(value).toEqual(
         'version = 0.0.1'
       )
     })
-    it('should calculate units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃')
+    it('should append units', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃'])
       expect(value).toEqual(
-        'broiled = 300.00℃'
+        'broiled = 300℃'
       )
     })
-    it('should convert units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃_℉')
-      expect(value).toEqual(
-        'broiled = 572.00℉'
-      )
-    })
-    it('should multiply units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃', 2)
+    it('should multiply units (default op)', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℃'], 2)
       expect(value).toEqual(
         'broiled x 2 = 600.00℃'
       )
     })
     it('should divide units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃', 2, '/')
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℃'], 2, '/')
       expect(value).toEqual(
         'broiled / 2 = 150.00℃'
+      )
+    })
+    it('should convert units', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℉'])
+      expect(value).toEqual(
+        'broiled = 572.00℉'
+      )
+    })
+    it('should convert unit paths', () => {
+      const value = calculate({cups: foodGraph.cups['1 cup']}, ['cup', 'ml', 'floz'])
+      expect(value).toEqual(
+        'cups = 10.00floz'
+      )
+    })
+    it('should ignore false conversion', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', 'x'])
+      expect(value).toEqual(
+        'broiled = 300.00℃'
       )
     })
   })
@@ -374,15 +371,6 @@ describe('graph', () => {
       expect(iter.next().done).toBe(false)
       expect(iter.next().done).toBe(true)
     })
-    it('should return calculated entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('1/2 cup')
-      expect(iter.next().value).toEqual({
-        type: 'branch', value: 'cups'
-      })
-      expect(iter.next().value).toEqual({
-        type: 'node', value: '1 cup x 0.5 = 142.00ml'
-      })
-    })
     it('should calculate nodes for branch', () => {
       iter = generator(foodGraph, aliasGraph)('cups')
       expect(iter.next().value).toEqual({
@@ -392,6 +380,15 @@ describe('graph', () => {
       expect(iter.next().value).toEqual({
         type: 'node',
         value: '1 cup = 284.00ml'
+      })
+    })
+    it('should return calculated entry for number', () => {
+      iter = generator(foodGraph, aliasGraph)('1/2 cups')
+      expect(iter.next().value).toEqual({
+        type: 'branch', value: 'cups'
+      })
+      expect(iter.next().value).toEqual({
+        type: 'node', value: '1 cup x 0.5 = 142.00ml'
       })
     })
     it('should return aliased path values for branch', () => {
@@ -412,7 +409,7 @@ describe('graph', () => {
         {type: 'branch', value: 'beef, weight'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: 'lb = 200mins'}
+        {type: 'node', value: 'lb = 200.00mins'}
       )
     })
     it('should apply conversion', () => {
