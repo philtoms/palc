@@ -11,35 +11,52 @@ const isBranch = obj => Object.keys(obj).length > 1 || !isNode(lastEntry(obj))
 const swap = (key, value) => `${value}${key}`
 const filter = graph => isObj(graph) ? Object.keys(graph).filter(k => k !== 'unit') : []
 
-const overrides = {
-  '℃': '℃',
-  '℉': '℉'
-}
+const overrides = {}
+const units = {unit: {}}
 
-export const units = (path, to, key) => {
+export const setUnits = (path, to = [], keys = []) => {
   const entry = lastEntry(path)
-  key = key || keyOf(entry)
-
+  keys.push(keyOf(entry))
   let unit
   if (path.length) {
     unit = valueOf(entry).unit
-    if (!unit) return units(path.slice(0, -1), to, key)
-    if (isObj(unit) && key) {
-      unit = unit[key]
+    if (!unit) return setUnits(path.slice(0, -1), to, keys)
+    if (isObj(unit)) {
+      unit = keys.reduce((u, key) => (u = u || unit[key]), undefined)
     }
-    to = to || overrides[unit]
-    overrides[unit] = to
   }
-  return to && to !== unit && unit.indexOf('_') < 0 ? `${unit}_${to}` : unit
+
+  const units = (unit || '').split('_').concat(to).filter(u => u).reduce((a, u) => {
+    a.push(u)
+    // overrides[u] = overrides[u] || u
+    // if (overrides[u] !== u) {
+    //   a.push(overrides[u])
+    // }
+    return a
+  }, [])
+
+  if (units.length === 1) {
+    units.push(units[0])
+  }
+
+  return units
 }
 
-export const contains = keys => path => keys.reduce((match, key) => {
-  return match && key && (!!path.find(item => keyOf(item).startsWith(key)))
-}, true)
+export const contains = keys => path => keys.every((match) => {
+  return path.some(item => keyOf(item).startsWith(match))
+})
+
+export const graphContains = (match, graph) => {
+  const key = keyOf(graph)
+  const value = valueOf(graph)
+  const r = (key.startsWith(match)) ||
+    (isObj(value) && Object.keys(value).some(key => graphContains(match, {[key]: value[key]})))
+  return r
+}
 
 export const map = key => {
   key = key.toLowerCase().trim()
-  return formulae.map[key] || null
+  return formulae.map[key]
 }
 
 export const toNum = str => {
@@ -48,15 +65,21 @@ export const toNum = str => {
   if (!isNaN(n) && !isNaN(d)) return n / d
 }
 
-export const convert = (data => {
+export const convert = (({calc}) => {
   const id = x => x
-  const conv = Object.keys(data).reduce((obj, key) => {
+  const conv = Object.keys(calc).reduce((obj, key) => {
     const [from, to] = key.split('_')
     const inv = `${to}_${from}`
-    obj[key] = {[to]: data[key]}
-    obj[inv] = {[from]: x => x * (1 / data[key](x))}
+    obj[key] = {[to]: calc[key]}
     obj[from] = {...(obj[from] || {}), [from]: id, [to]: obj[key][to]}
-    obj[to] = {...(obj[to] || {}), [to]: id, [from]: obj[inv][from]}
+    if (!calc[inv]) {
+      obj[inv] = {[from]: x => x * (1 / calc[key](x))}
+      obj[to] = {...(obj[to] || {}), [to]: id, [from]: obj[inv][from]}
+    }
+    units.unit[from] = key
+    units.unit[to] = inv
+    units[from] = 1
+    units[to] = 1
     return obj
   }, {})
   return conv
@@ -79,56 +102,65 @@ export const aliasReducer = graph => path => {
 export function parse (input) {
   const inputs = input.split(/[\s,]+/).map(k => k.toString().toLowerCase().trim()).filter(k => k)
   const keys = []
-  let unit = null
+  let units = []
   let num = 1
   const op = inputs.reduce((op, key, i) => {
-    if (map(key)) {
-      unit = map(key)
+    const unit = map(key) || key
+    if (convert[unit]) {
+      units.push(unit)
       return op
     }
 
     // Note: -ve not supported
     key = key.replace(/\d*([1..9]\/|[.])?\d+$/, m => { num = m; return '' })
              .replace(/^\d*([1..9]\/|[.])?\d+/, m => { num = m; return '' })
-    if (!key) return op
 
-    if ('x/*'.indexOf(key[0]) !== -1) {
-      op = key[0]
-      key = key.substr(1)
+    if (key) {
+      if ('x/*'.indexOf(key[0]) !== -1) {
+        op = key[0]
+        key = key.substr(1)
+      }
+
+      if (key) keys.push(key)
     }
-
-    if (key) keys.push(key)
 
     return (op === '*' ? 'x' : op)
   }, 'x')
 
-  return [keys, toNum(num), op, unit]
+  // transfer unit only input to keys
+  if (!keys.length && units.length) {
+    keys.push(units.shift())
+  }
+  return [keys, toNum(num), op, units]
 }
 
-export const calculate = (entry, unit = null, num = 1, op = 'x') => {
+export const calculate = (entry, units = [], num = 1, op = 'x') => {
   const key = keyOf(entry)
   const value = valueOf(entry)
-  let calc
-  if (isNum(value) && convert[unit]) {
-    let cu = convert[unit]
-    if (cu[unit]) {
-      cu = cu[unit]
-    } else {
-      unit = keyOf(cu)
-      cu = valueOf(cu)
-    }
+
+  if (isNum(value) && units.length > 1) {
+    const calc = units.reduce((a, u) => {
+      a.conv.push(u)
+      const [from, to] = a.conv.slice(-2)
+      if (convert[from] && convert[from][to]) {
+        overrides[from] = to
+        a.value = convert[from][to](a.value)
+        a.unit = to
+      }
+      return a
+    }, {value, conv: [], unit: units[0]})
+    let calculated
     switch (op) {
       case '/':
-        calc = cu(value) / num
+        calculated = calc.value / num
         break
       default:
-        calc = cu(value) * num
+        calculated = calc.value * num
         break
     }
-    return `${key}${num !== 1 ? ` ${op} ${num}` : ''} = ${swap(unit, calc.toFixed(2))}`
-  } else {
-    return `${key} = ${value}`
+    return `${value === 1 ? '1 ' : ''}${key}${num !== 1 ? ` ${op} ${num}` : ''} = ${swap(calc.unit, calculated.toFixed(2))}`
   }
+  return `${key} = ${value}${units[0] || ''}`
 }
 
 export function generatePath (root, match) {
@@ -146,13 +178,13 @@ export function generatePath (root, match) {
   return traverse(root, [])
 }
 
-export function * generateList (graph, keys) {
-  const keysInPath = contains(keys)
+export function * generateList (graph, matches) {
+  const keysInPath = contains(matches)
   const used = []
-  for (let key of keys) {
-    if (!used.includes(key)) {
-      used.push(key)
-      for (let path of generatePath(graph, key)) {
+  for (let match of matches) {
+    if (!used.includes(match)) {
+      used.push(match)
+      for (let path of generatePath(graph, match)) {
         if (keysInPath(path)) {
           yield path
         }
@@ -163,8 +195,10 @@ export function * generateList (graph, keys) {
 
 const generator = (dataGraph, aliasGraph) => {
   const alias = aliasReducer(aliasGraph)
-  return function * input (input) {
-    const [keys, num, op, unit] = parse(input)
+  dataGraph.units = units
+
+  return function * generate (input) {
+    const [keys, num, op, to] = parse(input)
     const generateEntry = function * (path, units, isPath) {
       const entry = lastEntry(path)
       if (isBranch(path)) {
@@ -175,16 +209,14 @@ const generator = (dataGraph, aliasGraph) => {
         yield {type: 'node', value: calculate(entry, units, num, op)}
       }
     }
-
     for (let path of generateList(dataGraph, keys)) {
-      const entryUnits = units(path, unit)
-      yield * generateEntry(path, entryUnits)
+      yield * generateEntry(path, setUnits(path, to))
       if (isBranch(path)) {
         const nodes = valueOf(lastEntry(path))
         for (let key of filter(nodes)) {
           const node = {[key]: nodes[key]}
           const entry = isNode(node) ? [node] : path.concat(node)
-          yield * generateEntry(entry, entryUnits, true)
+          yield * generateEntry(entry, setUnits(path.concat(node), to), true)
         }
       }
     }

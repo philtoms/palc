@@ -1,4 +1,4 @@
-import generator, { map, units, aliasReducer, calculate, convert, generatePath, generateList, contains, parse } from '../'
+import generator, { map, setUnits, aliasReducer, calculate, convert, generatePath, generateList, contains, parse } from '../'
 import formulae from '../formulae'
 
 const foodGraph = {
@@ -10,10 +10,11 @@ const foodGraph = {
     },
     temp: {
       int: 80,
+      fried: 200,
       broiled: 300
     },
     weight: {
-      '1lb': 200
+      'lb': 200
     }
   },
   chicken: {
@@ -28,6 +29,12 @@ const foodGraph = {
   cups: {
     unit: 'cup_ml',
     '1 cup': 1
+  },
+  units: {
+    unit: {
+      oz: 'oz_gm'
+    },
+    oz: 1
   }
 }
 
@@ -51,53 +58,51 @@ describe('graph', () => {
     })
   })
 
-  describe('units', () => {
+  describe('setUnits', () => {
     it('should extract unit', () => {
-      expect(units([{cups: foodGraph.cups}])).toBe('cup_ml')
+      expect(setUnits([{cups: foodGraph.cups}])).toEqual(['cup', 'ml'])
     })
     it('should extract nested unit', () => {
-      expect(units([
+      expect(setUnits([
         {chicken: foodGraph.chicken},
         {fried: foodGraph.chicken.fried},
         {temp: foodGraph.chicken.fried.temp}
-      ])).toBe('℃')
+      ])).toEqual(['℃', '℃'])
     })
     it('should extract nested keyed unit', () => {
-      expect(units([
+      expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ])).toBe('℃')
+      ])).toEqual(['℃', '℃'])
+    })
+    it('should extract parent keyed unit', () => {
+      expect(setUnits([
+        {beef: foodGraph.beef},
+        {temp: foodGraph.beef.temp},
+        {int: foodGraph.beef.temp.int}
+      ])).toEqual(['℃', '℃'])
     })
     it('should return unit conversion', () => {
-      expect(units([
+      expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ], '℉')).toBe('℃_℉')
+      ], ['℉'])).toEqual(['℃', '℉'])
     })
-    it('should default to last unit', () => {
-      units([
+    xit('should default to currrently selected unit', () => {
+      calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℉'])
+      expect(setUnits([
         {beef: foodGraph.beef},
         {temp: foodGraph.beef.temp}
-      ], '℉')
-      expect(units([
-        {beef: foodGraph.beef},
-        {temp: foodGraph.beef.temp}
-      ])).toBe('℃_℉')
+      ])).toEqual(['℃', '℉'])
     })
-    it('should return redundant unit conversion', () => {
-      expect(units([
-        {beef: foodGraph.beef},
-        {temp: foodGraph.beef.temp}
-      ], '℃')).toBe('℃')
-    })
-    it('should not override explicit unit conversion', () => {
-      expect(units([{cups: foodGraph.cups}], 'oz')).toBe('cup_ml')
+    it('should compose unit conversion', () => {
+      expect(setUnits([{cups: foodGraph.cups}], ['floz'])).toEqual(['cup', 'ml', 'floz'])
     })
   })
 
   describe('conversions', () => {
     it('should populate formulae', () => {
-      expect(convert['oz_gm'].gm).toBe(formulae['oz_gm'])
+      expect(convert['oz_gm'].gm).toBe(formulae.calc['oz_gm'])
     })
     it('should calculate inverse values for formula', () => {
       expect(convert['gm_oz'].oz(1).toFixed(4)).toBe('0.0353')
@@ -115,37 +120,37 @@ describe('graph', () => {
 
   describe('parse', () => {
     it('should return defaults', () => {
-      expect(parse('a')).toEqual([['a'], 1, 'x', null])
+      expect(parse('a')).toEqual([['a'], 1, 'x', []])
     })
     it('should return numbers', () => {
-      expect(parse('a 123')).toEqual([['a'], 123, 'x', null])
+      expect(parse('a 123')).toEqual([['a'], 123, 'x', []])
     })
     it('should return ops', () => {
-      expect(parse('a 123 /')).toEqual([['a'], 123, '/', null])
+      expect(parse('a 123 /')).toEqual([['a'], 123, '/', []])
     })
     it('should return unit', () => {
-      expect(parse('a 123 f')).toEqual([['a'], 123, 'x', '℉'])
+      expect(parse('a 123 f')).toEqual([['a'], 123, 'x', ['℉']])
     })
     it('should return unit, num', () => {
-      expect(parse('a f 123')).toEqual([['a'], 123, 'x', '℉'])
+      expect(parse('a f 123')).toEqual([['a'], 123, 'x', ['℉']])
     })
     it('should return opnums', () => {
-      expect(parse('a /123')).toEqual([['a'], 123, '/', null])
+      expect(parse('a /123')).toEqual([['a'], 123, '/', []])
     })
     it('should strip commas', () => {
-      expect(parse('a, b')).toEqual([['a', 'b'], 1, 'x', null])
+      expect(parse('a, b')).toEqual([['a', 'b'], 1, 'x', []])
     })
     it('should normlise ops', () => {
-      expect(parse('a *123')).toEqual([['a'], 123, 'x', null])
+      expect(parse('a *123')).toEqual([['a'], 123, 'x', []])
     })
     it('should disambiguate trailing numbers', () => {
-      expect(parse('a2')).toEqual([['a'], 2, 'x', null])
+      expect(parse('a2')).toEqual([['a'], 2, 'x', []])
     })
     it('should disambiguate leading numbers', () => {
-      expect(parse('2a')).toEqual([['a'], 2, 'x', null])
+      expect(parse('2a')).toEqual([['a'], 2, 'x', []])
     })
     it('should ignore embedded numbers', () => {
-      expect(parse('a2a')).toEqual([['a2a'], 1, 'x', null])
+      expect(parse('a2a')).toEqual([['a2a'], 1, 'x', []])
     })
   })
 
@@ -218,33 +223,45 @@ describe('graph', () => {
 
   describe('calculator', () => {
     it('should parse key value', () => {
-      const value = calculate(foodGraph, null)
+      const value = calculate(foodGraph)
       expect(value).toEqual(
         'version = 0.0.1'
       )
     })
-    it('should calculate units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃')
+    it('should append units', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃'])
       expect(value).toEqual(
-        'broiled = 300.00℃'
+        'broiled = 300℃'
       )
     })
-    it('should convert units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃_℉')
-      expect(value).toEqual(
-        'broiled = 572.00℉'
-      )
-    })
-    it('should multiply units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃', 2)
+    it('should multiply units (default op)', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℃'], 2)
       expect(value).toEqual(
         'broiled x 2 = 600.00℃'
       )
     })
     it('should divide units', () => {
-      const value = calculate({broiled: foodGraph.beef.temp.broiled}, '℃', 2, '/')
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℃'], 2, '/')
       expect(value).toEqual(
         'broiled / 2 = 150.00℃'
+      )
+    })
+    it('should convert units', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', '℉'])
+      expect(value).toEqual(
+        'broiled = 572.00℉'
+      )
+    })
+    it('should convert unit paths', () => {
+      const value = calculate({cups: foodGraph.cups['1 cup']}, ['cup', 'ml', 'floz'])
+      expect(value).toEqual(
+        'cups = 10.00floz'
+      )
+    })
+    it('should ignore false conversion', () => {
+      const value = calculate({broiled: foodGraph.beef.temp.broiled}, ['℃', 'x'])
+      expect(value).toEqual(
+        'broiled = 300.00℃'
       )
     })
   })
@@ -354,33 +371,6 @@ describe('graph', () => {
       expect(iter.next().done).toBe(false)
       expect(iter.next().done).toBe(true)
     })
-    it('should return calculated entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('1/2 cup')
-      expect(iter.next().value).toEqual({
-        type: 'branch', value: 'cups'
-      })
-      expect(iter.next().value).toEqual({
-        type: 'node', value: '1 cup x 0.5 = 142.00ml'
-      })
-    })
-    it('should return multiplied entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('cup 2')
-      expect(iter.next().value).toEqual(
-        {type: 'branch', value: 'cups'}
-      )
-      expect(iter.next().value).toEqual(
-        {type: 'node', value: '1 cup x 2 = 568.00ml'}
-      )
-    })
-    it('should return divided entry for number', () => {
-      iter = generator(foodGraph, aliasGraph)('cup /2')
-      expect(iter.next().value).toEqual(
-        {type: 'branch', value: 'cups'}
-      )
-      expect(iter.next().value).toEqual(
-        {type: 'node', value: '1 cup / 2 = 142.00ml'}
-      )
-    })
     it('should calculate nodes for branch', () => {
       iter = generator(foodGraph, aliasGraph)('cups')
       expect(iter.next().value).toEqual({
@@ -390,6 +380,15 @@ describe('graph', () => {
       expect(iter.next().value).toEqual({
         type: 'node',
         value: '1 cup = 284.00ml'
+      })
+    })
+    it('should return calculated entry for number', () => {
+      iter = generator(foodGraph, aliasGraph)('1/2 cups')
+      expect(iter.next().value).toEqual({
+        type: 'branch', value: 'cups'
+      })
+      expect(iter.next().value).toEqual({
+        type: 'node', value: '1 cup x 0.5 = 142.00ml'
       })
     })
     it('should return aliased path values for branch', () => {
@@ -403,16 +402,34 @@ describe('graph', () => {
         value: 'fried chicken'
       })
     })
-    it('should apply history', () => {
+    it('should append default units', () => {
       const gen = generator(foodGraph, aliasGraph)
-      iter = gen('cu')
-      while (!iter.next().done);
-      iter = gen('cu2')
+      iter = gen('b w')
       expect(iter.next().value).toEqual(
-        {type: 'branch', value: 'cups'}
+        {type: 'branch', value: 'beef, weight'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: '1 cup x 2 = 568.00ml'}
+        {type: 'node', value: 'lb = 200.00mins'}
+      )
+    })
+    it('should apply conversion', () => {
+      const gen = generator(foodGraph, aliasGraph)
+      iter = gen('b t i f')
+      expect(iter.next().value).toEqual(
+        {type: 'branch', value: 'beef, temp'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: 'int = 176.00℉'}
+      )
+    })
+    it('should list units', () => {
+      const gen = generator(foodGraph, aliasGraph)
+      iter = gen('oz')
+      expect(iter.next().value).toEqual(
+        {type: 'branch', value: 'units'}
+      )
+      expect(iter.next().value).toEqual(
+        {type: 'node', value: 'oz = 28.35gm'}
       )
     })
   })
