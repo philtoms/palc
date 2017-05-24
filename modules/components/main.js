@@ -97,9 +97,10 @@ export default class Main extends React.Component {
           : delayed
             ? <Text>Nothing here :(</Text>
             : !inputValue && <View>
-              <Text>a number for conversions,</Text>
-              <Text>or a topic such as aga, cup, etc,</Text>
-              <Text>or just type chicken...</Text>
+              <Text>a unit like C or F for conversions,</Text>
+              <Text>or just U for all conversions,</Text>
+              <Text>or just type chicken or aga or...</Text>
+              <Text>just type and see :)</Text>
             </View>
         }
       </View>

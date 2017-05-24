@@ -6,7 +6,7 @@ import backgroundImg from './assets/palc1.png'
 
 export default class App extends React.Component {
   state = {
-    category: 'Kitchen'
+    category: 'Cooks'
   }
 
   render () {
