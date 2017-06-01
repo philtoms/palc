@@ -82,12 +82,11 @@ export default class Main extends React.Component {
       <View style={styles.container}>
         <Animated.View style={animStyle}>
           <Title style={styles.title} width={150} height={50}/>
-          <Text style={styles.paragraph}>for</Text>
-          <Text style={styles.paragraph}>{this.props.category}</Text>
+          <Text style={styles.paragraph2}>{this.props.category}</Text>
         </Animated.View>
         <TextInput
           value={inputValue}
-          placeholder="Start typing..."
+          placeholder="Search PALc"
           onChangeText={this._handleTextChange}
           style={styles.input}
           underlineColorAndroid="rgba(0,0,0,0)"
@@ -97,10 +96,8 @@ export default class Main extends React.Component {
           : delayed
             ? <Text>Nothing here :(</Text>
             : !inputValue && <View>
-              <Text>a unit like C or F for conversions,</Text>
-              <Text>or just U for all conversions,</Text>
-              <Text>or just type chicken or aga or...</Text>
-              <Text>just type and see :)</Text>
+              <Text style={styles.intro}>Solve your cooking measurement, temperature and timing queries
+              with one simple search.</Text>
             </View>
         }
       </View>
@@ -126,12 +123,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center'
   },
-  paragraph: {
+  paragraph1: {
     fontSize: 18,
     textAlign: 'center',
     color: '#34495e'
   },
+  paragraph2: {
+    fontSize: 20,
+    padding: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#0ca50b'
+  },
   input: {
+    marginTop: 10,
     marginBottom: 10,
     fontSize: 18,
     width: '100%',
@@ -140,5 +145,13 @@ const styles = StyleSheet.create({
     padding: 10,
     color: 'black',
     backgroundColor: 'white'
+  },
+  intro: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#777',
+    padding: 10,
+    textAlign: 'center',
+    lineHeight: 20
   }
 })
