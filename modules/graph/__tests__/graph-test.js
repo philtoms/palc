@@ -28,7 +28,7 @@ const foodGraph = {
   },
   cups: {
     unit: 'cup_ml',
-    '1 cup': 1
+    'cup': 1
   },
   units: {
     unit: {
@@ -253,9 +253,9 @@ describe('graph', () => {
       )
     })
     it('should convert unit paths', () => {
-      const value = calculate({cups: foodGraph.cups['1 cup']}, ['cup', 'ml', 'floz'])
+      const value = calculate({cup: foodGraph.cups.cup}, ['cup', 'ml', 'floz'])
       expect(value).toEqual(
-        'cups = 10.00floz'
+        '1 cup = 10.00floz'
       )
     })
     it('should ignore false conversion', () => {
@@ -429,7 +429,7 @@ describe('graph', () => {
         {type: 'branch', value: 'units'}
       )
       expect(iter.next().value).toEqual(
-        {type: 'node', value: 'oz = 28.35gm'}
+        {type: 'node', value: '1 oz = 28.35gm'}
       )
     })
   })
